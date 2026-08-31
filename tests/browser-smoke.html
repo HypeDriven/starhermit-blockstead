@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- Blockstead — browser smoke harness (not part of the game).
+     Drives the real UI in an iframe and reports PASS/FAIL lines. -->
+<html><body><pre id="out">RUNNING</pre>
+<script>
+const out = [];
+const log = (ok, name) => out.push((ok ? 'PASS' : 'FAIL') + ': ' + name);
+const f = document.createElement('iframe');
+f.style.cssText = 'width:1280px;height:800px';
+f.src = '/';
+document.body.appendChild(f);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+f.onload = async () => {
+  const w = f.contentWindow, d = f.contentDocument;
+  const key = k => d.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+  try {
+    await sleep(400);
+    log(d.getElementById('app').getAttribute('data-screen') === 'title', 'boot reaches title');
+    log(!!w.BSRules && !!w.BSContent && !!w.BSSession && !!w.BSUI, 'all globals loaded');
+
+    d.getElementById('btn-play').click(); await sleep(150);
+    log(w.BSUI.currentScreen() === 'modes', 'play opens mode select');
+
+    d.querySelectorAll('#mode-list .mode-item .btn')[3].click(); await sleep(150); // practice
+    log(w.BSUI.currentScreen() === 'setup', 'practice opens setup');
+
+    d.getElementById('btn-start-round').click(); await sleep(300);
+    log(d.getElementById('app').getAttribute('data-screen') === 'game', 'round starts (HUD only)');
+    log(!d.getElementById('hud-top').classList.contains('hidden'), 'HUD visible in round');
+
+    const score0 = d.getElementById('hud-score').textContent;
+    d.getElementById('btn-gather').click(); await sleep(150);
+    log(d.getElementById('hud-moves').textContent.includes('1'), 'gather registers a move');
+
+    key('ArrowRight'); await sleep(80);
+    key('Enter'); await sleep(200);
+    log(d.getElementById('hud-score').textContent !== score0, 'keyboard place scores points');
+
+    key('u'); await sleep(150);
+    log(true, 'undo executed without error');
+
+    key('p'); await sleep(150);
+    log(w.BSUI.currentScreen() === 'pause', 'P pauses');
+    d.getElementById('btn-resume').click(); await sleep(150);
+    log(d.getElementById('app').getAttribute('data-screen') === 'game', 'resume returns to round');
+
+    key('h'); await sleep(100);
+    log(true, 'hint executed without error');
+
+    key('p'); await sleep(100);
+    d.getElementById('btn-leave').click(); await sleep(150);
+    log(w.BSUI.currentScreen() === 'title', 'leave returns to title');
+
+    // settings round-trip
+    d.getElementById('btn-settings').click(); await sleep(120);
+    log(w.BSUI.currentScreen() === 'settings', 'settings opens');
+    log(d.querySelectorAll('#settings-form fieldset').length >= 3, 'settings sections render');
+
+    // help
+    d.querySelector('#screens .screen[data-name="settings"] [data-back]').click(); await sleep(100);
+    d.getElementById('btn-help').click(); await sleep(120);
+    log(d.querySelectorAll('#help-body .help-card').length >= 5, 'help cards render');
+
+    // localStorage persistence
+    log(!!w.localStorage.getItem('blockstead.save.v1'), 'save document persisted');
+  } catch (e) {
+    out.push('FAIL: exception ' + (e && e.message));
+  }
+  document.getElementById('out').textContent = out.join('\n') + '\nDONE';
+};
+</script></body></html>

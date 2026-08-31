@@ -1,0 +1,26 @@
+<!doctype html>
+<!-- Screenshot harness: auto-starts a journey round and builds a few blocks. -->
+<html><body style="margin:0">
+<script>
+const f = document.createElement('iframe');
+f.style.cssText = 'width:100vw;height:100vh;border:0';
+f.src = '/';
+document.body.appendChild(f);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+f.onload = async () => {
+  const w = f.contentWindow, d = f.contentDocument;
+  const key = k => d.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+  await sleep(400);
+  d.getElementById('btn-journey').click(); await sleep(200);
+  d.querySelector('#journey-grid .level-cell').click(); await sleep(400);
+  for (let i = 0; i < 3; i++) { d.getElementById('btn-gather').click(); await sleep(120); }
+  for (let i = 0; i < 4; i++) {
+    key('ArrowRight'); await sleep(60); key('Enter'); await sleep(150);
+  }
+  key('2'); await sleep(80);
+  for (let i = 0; i < 3; i++) {
+    key('ArrowRight'); await sleep(60); key('Enter'); await sleep(150);
+  }
+  document.title = 'READY';
+};
+</script></body></html>

@@ -1,0 +1,116 @@
+[
+  {
+    "name": "ui",
+    "seconds": 1,
+    "prompt": "Short dry plastic button click, a quick tactile UI tick",
+    "event": "ui"
+  },
+  {
+    "name": "select",
+    "seconds": 1,
+    "prompt": "Single soft wooden block tap, a gentle hollow knock",
+    "event": "select"
+  },
+  {
+    "name": "deselect",
+    "seconds": 1,
+    "prompt": "Soft dull wooden tap, a lower muted knock",
+    "event": "deselect"
+  },
+  {
+    "name": "gather",
+    "seconds": 2,
+    "prompt": "Pickaxe striking stone twice, sharp rocky chipping hits",
+    "event": "gather"
+  },
+  {
+    "name": "place-wood",
+    "seconds": 1,
+    "prompt": "Wooden plank thud as a timber block is set down on a solid surface",
+    "event": "place-wood"
+  },
+  {
+    "name": "place-stone",
+    "seconds": 1,
+    "prompt": "Heavy stone block thump dropped onto bare rock",
+    "event": "place-stone"
+  },
+  {
+    "name": "place-glass",
+    "seconds": 1,
+    "prompt": "Bright glass clink, a thin crystal pane tapped into place",
+    "event": "place-glass"
+  },
+  {
+    "name": "place-plant",
+    "seconds": 1,
+    "prompt": "Soft leafy rustle with a gentle earthy pat of soil",
+    "event": "place-plant"
+  },
+  {
+    "name": "place-lamp",
+    "seconds": 1,
+    "prompt": "Small metallic clink of a lantern being hung, faint warm buzz",
+    "event": "place-lamp"
+  },
+  {
+    "name": "remove",
+    "seconds": 1,
+    "prompt": "Chunky crumble of a block breaking apart, debris thud",
+    "event": "remove"
+  },
+  {
+    "name": "invalid",
+    "seconds": 1,
+    "prompt": "Dull low buzzer honk, a short flat error buzz",
+    "event": "invalid"
+  },
+  {
+    "name": "goal",
+    "seconds": 2,
+    "prompt": "Bright two-note bell chime, cheerful ascending ding-ding",
+    "event": "goal"
+  },
+  {
+    "name": "wave",
+    "seconds": 2,
+    "prompt": "Three ascending mallet chimes, a wooden marimba arpeggio",
+    "event": "wave"
+  },
+  {
+    "name": "win",
+    "seconds": 3,
+    "prompt": "Joyful ascending bell fanfare, a four-note celebratory chime",
+    "event": "win"
+  },
+  {
+    "name": "lose",
+    "seconds": 2,
+    "prompt": "Descending low sad tone, a slow falling disappointed moan",
+    "event": "lose"
+  },
+  {
+    "name": "undo",
+    "seconds": 1,
+    "prompt": "Quick reverse whoosh, a tape rewinding swish",
+    "event": "undo"
+  },
+  {
+    "name": "hint",
+    "seconds": 2,
+    "prompt": "Sparkling glissando shimmer, a soft magic twinkle",
+    "event": "hint"
+  },
+  {
+    "name": "star",
+    "seconds": 1,
+    "prompt": "Single high glockenspiel ping, bright star chime",
+    "event": "star"
+  },
+  {
+    "name": "weather-rain",
+    "seconds": 3,
+    "prompt": "Gentle rain shower beginning on leaves, soft patter swelling in",
+    "event": "weather-rain"
+  }
+]
