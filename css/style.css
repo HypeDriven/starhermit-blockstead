@@ -8,7 +8,7 @@
 html, body { margin: 0; padding: 0; height: 100%; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: #eef2f6; background: #0b1420; overflow: hidden;
+  color: #eef2f6; background: #0b1420;
   font-size: 16px; line-height: 1.45;
 }
 body.large-text { font-size: 20px; }
@@ -127,7 +127,7 @@ body.left-handed #hud-actions { left: max(env(safe-area-inset-left), 10px); righ
   padding: calc(max(env(safe-area-inset-top), 12px)) 12px calc(max(env(safe-area-inset-bottom), 12px));
   pointer-events: auto;
 }
-.screen.active { display: flex; align-items: center; justify-content: center; }
+.screen.active { display: flex; align-items: safe center; justify-content: safe center; }
 .screen.overlay { background: rgba(4,8,14,.55); }
 .screen.underlay { display: none; }
 #app[data-screen="game"] #screens { display: none; }
