@@ -246,6 +246,7 @@ import { createRenderer } from './render.js';
         case 'gather': {
           Audio.play('gather');
           haptic(15);
+          progress.stats.gathered++;
           const gains = Object.entries(e.gains).map(([t, n]) => n + ' ' + Content.BLOCKS[t].label).join(', ');
           UI.message('Gathered ' + gains);
           break;
@@ -317,10 +318,6 @@ import { createRenderer } from './render.js';
     progress.stats.playMs += s.elapsedMs;
 
     let achievements = [];
-    const newly = (key) => {
-      const a = Content.ACHIEVEMENTS.find(x => x.key === key);
-      if (a) achievements.push(a);
-    };
     const before = new Set(Object.keys(progress.achievements));
 
     if (s.terminal.won) {
@@ -328,9 +325,6 @@ import { createRenderer } from './render.js';
       if (s.score.total >= 2500) unlock('score-2500');
     }
     if (round.mode === 'journey' && s.terminal.won) {
-      const done = Object.keys(progress.journeyStars).length;
-      if (done + 1 >= 20) unlock('journey-half');
-      if (done + 1 >= Content.JOURNEY.length) unlock('journey-done');
       // stars: win + beat par + no removals
       const lvl = s.cfg;
       let stars = 1;
@@ -339,6 +333,9 @@ import { createRenderer } from './render.js';
       const prev = progress.journeyStars[lvl.id] || 0;
       progress.journeyStars[lvl.id] = Math.max(prev, stars);
       progress.journeyBest[lvl.id] = Math.max(progress.journeyBest[lvl.id] || 0, s.score.total);
+      const done = Object.keys(progress.journeyStars).length;
+      if (done >= 20) unlock('journey-half');
+      if (done >= Content.JOURNEY.length) unlock('journey-done');
     }
     if (round.mode === 'daily' && s.terminal.won) {
       progress.dailiesDone[s.cfg.date] = Math.max(progress.dailiesDone[s.cfg.date] || 0, s.score.total);
@@ -369,6 +366,7 @@ import { createRenderer } from './render.js';
   function unlock(key) {
     if (!progress.achievements[key]) {
       progress.achievements[key] = Date.now();
+      persist(); // mid-round unlocks survive a closed tab
       Audio.play('star');
       UI.announce('Achievement unlocked');
     }
@@ -496,10 +494,19 @@ import { createRenderer } from './render.js';
     round.state = sess.state;
     round.mode = snap.mode || 'practice';
     round.levelIndex = snap.levelIndex == null ? -1 : snap.levelIndex;
+    round.lesson = null; round.lessonEvents = {};
     round.selectedBlock = sess.cfg.blocks[0];
     round.removeMode = false;
+    round.pendingCell = null;
+    round.focusTargets = []; round.focusIndex = -1;
     round.startedAt = performance.now();
     round.phase = 'active';
+    Audio.setAvRng(RNG.derive(sess.cfg.seed, RNG.STREAM_AV));
+    if (renderer) {
+      renderer.setPalette(themeById(sess.cfg.theme || settings.theme).palette,
+        settings.highContrast || settings.colorPalette === 'high-visibility');
+      renderer.skipAnimations();
+    }
     startWeather(sess.cfg.seed);
     UI.showScreen('game', true);
     refreshUI();
@@ -656,7 +663,6 @@ import { createRenderer } from './render.js';
     Session.undo(round.session);
     round.state = round.session.state;
     Audio.play('undo');
-    round.lessonEvents.undo = (round.lessonEvents.undo || 0) + 1;
     checkLesson([{ type: 'undo' }]);
     rebuildFocusTargets();
     refreshUI();
@@ -755,7 +761,8 @@ import { createRenderer } from './render.js';
       // resign is a real, recorded terminal transition
       Session.execute(round.session, { type: 'resign' }, 0);
     }
-    if (silent || !round.session) clearRoundSnapshot(); else saveRoundSnapshot();
+    // a resigned or finished round must not come back as "Resume round"
+    clearRoundSnapshot();
     round.phase = 'title';
     round.session = null; round.state = null; round.lesson = null;
     UI.lessonBanner(null);

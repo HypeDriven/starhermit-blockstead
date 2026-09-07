@@ -22,7 +22,11 @@
   function currentScreen() { return screenStack[screenStack.length - 1]; }
 
   function showScreen(name, replace) {
-    if (replace) screenStack[screenStack.length - 1] = name;
+    // Title is the navigation root: showing it discards any stale stack
+    // entries (e.g. the HUD-only 'game' pseudo-screen), so Back/Escape can
+    // never land on a screen with no DOM panel.
+    if (name === 'title') screenStack = ['title'];
+    else if (replace) screenStack[screenStack.length - 1] = name;
     else if (currentScreen() !== name) screenStack.push(name);
     var app = $('app');
     app.setAttribute('data-screen', name);

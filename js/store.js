@@ -88,7 +88,8 @@
   function loadBoards() {
     try {
       var raw = localStorage.getItem(LB_KEY);
-      return raw ? JSON.parse(raw) : { entries: [] };
+      var b = raw ? JSON.parse(raw) : null;
+      return (b && Array.isArray(b.entries)) ? b : { entries: [] };
     } catch (e) { return { entries: [] }; }
   }
   function saveBoards(b) {

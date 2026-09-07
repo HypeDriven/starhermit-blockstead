@@ -123,7 +123,7 @@ async function handleApi(req, res, url, ip) {
   if (req.method === 'GET' && url.pathname === '/api/v1/leaderboard') {
     const boards = loadJson(BOARD_FILE, { entries: [] });
     const board = url.searchParams.get('board') || 'global';
-    const entries = boards.entries.filter(e => e.board === board).slice(0, 200);
+    const entries = boards.entries.filter(e => e.board === board);
     // tie order: score, fewer invalid, lower elapsed, stable session id
     entries.sort((a, b) =>
       b.score - a.score ||
@@ -190,11 +190,14 @@ async function handleApi(req, res, url, ip) {
 
 // ---------- static ----------
 function serveStatic(req, res, url) {
-  let p = decodeURIComponent(url.pathname);
+  let p;
+  try { p = decodeURIComponent(url.pathname); }
+  catch (e) { res.writeHead(400); return res.end('bad request'); }
   if (p === '/') p = '/index.html';
   const file = path.normalize(path.join(ROOT, p));
-  if (!file.startsWith(ROOT) || file.includes('..') ||
-      file.startsWith(DATA_DIR) || path.basename(file).startsWith('.')) {
+  if (!(file === ROOT || file.startsWith(ROOT + path.sep)) ||
+      file.startsWith(DATA_DIR + path.sep) || file === DATA_DIR ||
+      file.slice(ROOT.length).split(path.sep).some(seg => seg.startsWith('.'))) {
     res.writeHead(403); return res.end('forbidden');
   }
   fs.readFile(file, (err, data) => {
