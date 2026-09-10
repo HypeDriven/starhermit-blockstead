@@ -124,6 +124,7 @@ import { createRenderer } from './render.js';
       if (renderer) renderer.setWeather(w);
       Audio.setWeather(w);
       if (w === 'rain') Audio.play('weather-rain');
+      else if (w === 'cloud') Audio.play('weather-cloud');
     };
     weatherTimer = setInterval(tick, 40000);
   }
@@ -301,6 +302,7 @@ import { createRenderer } from './render.js';
     }
     startWeather(cfg.seed);
     UI.showScreen('game', true); // no DOM screen: HUD-only playfield
+    Audio.play('round-start');
     if (cfg.intro) UI.message(cfg.intro, true);
     funnel('start-' + mode);
     refreshUI();
@@ -405,6 +407,8 @@ import { createRenderer } from './render.js';
         (s.cfg.par ? s.cfg.par.moves : '—') + ' moves' : '',
       hasNext, nextLabel: hasNext ? 'Next: ' + Content.JOURNEY[round.levelIndex + 1].name : 'Next'
     });
+    const art = document.getElementById('results-art');
+    if (art) { art.hidden = false; art.src = won ? 'assets/results-win.webp' : 'assets/results-lose.webp'; }
     UI.showScreen('results');
     UI.announce(won ? 'Stage complete. Score ' + s.score.total : 'Round over. Score ' + s.score.total);
   }
@@ -509,6 +513,7 @@ import { createRenderer } from './render.js';
     }
     startWeather(sess.cfg.seed);
     UI.showScreen('game', true);
+    Audio.play('round-start');
     refreshUI();
     UI.toast('Round restored');
     UI.announce('Round restored. ' + movesText(sess.state));
@@ -693,7 +698,9 @@ import { createRenderer } from './render.js';
     if (round.phase !== 'active') return;
     round.phase = 'paused';
     round.pausedAt = performance.now();
-    Audio.suspend();
+    Audio.play('pause');
+    // let the pause cue finish before the context sleeps; a quick resume cancels it
+    setTimeout(() => { if (round.phase === 'paused') Audio.suspend(); }, 350);
     saveRoundSnapshot();
     UI.showScreen('pause');
     refreshUI();
@@ -704,6 +711,7 @@ import { createRenderer } from './render.js';
     // shift the clock baseline so paused time never counts
     round.startedAt = performance.now() - round.state.elapsedMs;
     Audio.resume();
+    Audio.play('resume');
     if (UI.currentScreen() === 'pause') UI.back();
     refreshUI();
   }
@@ -743,6 +751,7 @@ import { createRenderer } from './render.js';
       persist();
       funnel('tutorial-done-' + l.id);
       UI.lessonBanner(null);
+      Audio.play('lesson-complete');
       UI.toast('Lesson complete: ' + l.title);
       UI.announce('Lesson complete: ' + l.title);
       round.lesson = null;
@@ -1001,6 +1010,12 @@ import { createRenderer } from './render.js';
   }
   document.addEventListener('pointerdown', unlockAudio, { once: true });
   document.addEventListener('keydown', unlockAudio, { once: true });
+
+  // menu acknowledgment: every DOM-screen button ticks (HUD tools have their own cues)
+  document.addEventListener('click', (ev) => {
+    const t = ev.target && ev.target.closest ? ev.target.closest('#screens .btn, #lesson-quit, #webgl-continue') : null;
+    if (t && !t.disabled) Audio.play('ui');
+  });
 
   // ---------- wire UI hooks ----------
   UI.init({

@@ -124,7 +124,19 @@
     'undo':      function () { blip(500, 0.08, 'triangle', 0.1, 'effects', ctx.currentTime, 380); },
     'hint':      function () { blip(990, 0.12, 'sine', 0.1); blip(1320, 0.14, 'sine', 0.07, 'effects', ctx.currentTime + 0.07); },
     'star':      function () { blip(1568, 0.18, 'sine', 0.1); },
-    'weather-rain': function () { /* sample-only event; ambience reacts via setWeather */ }
+    'weather-rain': function () { /* sample-only event; ambience reacts via setWeather */ },
+    'weather-cloud': function () { thud(0.6, 0.12, 420); },
+    'round-start': function () {
+      blip(392, 0.3, 'triangle', 0.08); blip(587, 0.32, 'sine', 0.07, 'effects', ctx.currentTime + 0.12);
+      thud(0.05, 0.25, 900, ctx.currentTime + 0.4);
+    },
+    'lesson-complete': function () {
+      [0, 4, 9].forEach(function (st, i) {
+        blip(659 * Math.pow(2, st / 12), 0.22, 'triangle', 0.1, 'effects', ctx.currentTime + i * 0.09);
+      });
+    },
+    'pause':     function () { thud(0.09, 0.3, 500); blip(262, 0.16, 'sine', 0.08); },
+    'resume':    function () { blip(523, 0.1, 'sine', 0.09); blip(784, 0.12, 'sine', 0.07, 'effects', ctx.currentTime + 0.07); }
   };
 
   // Captions fire per logical event, independent of sample vs synthesis.
@@ -135,7 +147,9 @@
     'place-lamp': 'lamp placed', 'remove': 'block removed',
     'invalid': 'not allowed', 'goal': 'goal complete', 'wave': 'new goals',
     'win': 'stage complete', 'lose': 'round lost', 'undo': 'undo',
-    'hint': 'hint', 'weather-rain': 'rain begins'
+    'hint': 'hint', 'weather-rain': 'rain begins', 'weather-cloud': 'wind picks up',
+    'round-start': 'round started', 'lesson-complete': 'lesson complete',
+    'pause': 'paused', 'resume': 'resumed'
   };
 
   // ---------- authored samples: event -> sfx/<name>.opus ----------
@@ -160,7 +174,12 @@
     'undo': 'undo',
     'hint': 'hint',
     'star': 'star',
-    'weather-rain': 'weather-rain'
+    'weather-rain': 'weather-rain',
+    'weather-cloud': 'weather-cloud',
+    'round-start': 'round-start',
+    'lesson-complete': 'lesson-complete',
+    'pause': 'pause',
+    'resume': 'resume'
   };
   var samples = {}; // name -> { state: 'loading'|'ready'|'failed', buffer }
 

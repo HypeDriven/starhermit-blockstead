@@ -1,0 +1,27 @@
+# Blockstead — canonical SFX manifest. One line per clip:
+# file | event id (BSAudio.play(id) in js/audio.js) | description of the sound | usage context
+# All clips: MOSS-SoundEffect v2.0, 48 kHz mono Opus 96 kbps, loudness-normalized (-20 LUFS). Every event also has a WebAudio synth fallback.
+ui.opus | ui | Short dry plastic button click, a quick tactile UI tick | Any button on a DOM screen (title, modes, setup, pause, results, settings, help, profile, scores, learn); js/main.js click delegate
+select.opus | select | Single soft wooden block tap, a gentle hollow knock | Block chosen in the tray (click, keys 1-5, hint auto-select), remove tool switched on, plot cell tapped
+deselect.opus | deselect | Soft dull wooden tap, a lower muted knock | Remove tool switched off
+gather.opus | gather | Pickaxe striking stone twice, sharp rocky chipping hits | Gather command accepted (button, G key, gamepad X); HUD shows the yield
+place-wood.opus | place-wood | Wooden plank thud as a timber block is set down on a solid surface | Timber placed; material layer of the placement event
+place-stone.opus | place-stone | Heavy stone block thump dropped onto bare rock | Stone placed
+place-glass.opus | place-glass | Bright glass clink, a thin crystal pane tapped into place | Glass placed (needs support beneath)
+place-plant.opus | place-plant | Soft leafy rustle with a gentle earthy pat of soil | Plant topper placed
+place-lamp.opus | place-lamp | Small metallic clink of a lantern being hung, faint warm buzz | Lamp topper placed
+remove.opus | remove | Chunky crumble of a block breaking apart, debris thud | Top block removed with the remove tool (2-point penalty)
+invalid.opus | invalid | Dull low buzzer honk, a short flat error buzz | Rejected command (no stock, needs support, topper, rock, full column, disabled tool); paired with a HUD reason and 30 ms haptic
+goal.opus | goal | Bright two-note bell chime, cheerful ascending ding-ding | One build goal reaches its target (+150); goal row strikes through
+wave.opus | wave | Three ascending mallet chimes, a wooden marimba arpeggio | Score chase: all goals met, a new wave of goals arrives
+win.opus | win | Joyful ascending bell fanfare, a four-note celebratory chime | Every goal met, round ends won (goals-met terminal)
+lose.opus | lose | Descending low sad tone, a slow falling disappointed moan | Round ends lost (move limit, landlocked plot, resign)
+undo.opus | undo | Quick reverse whoosh, a tape rewinding swish | Undo restores the previous snapshot (U key, button, gamepad Y)
+hint.opus | hint | Sparkling glissando shimmer, a soft magic twinkle | Hint requested (H key, button); ghost block shows the suggested column
+star.opus | star | Single high glockenspiel ping, bright star chime | Achievement unlocked (mid-round or at results)
+weather-rain.opus | weather-rain | Gentle rain shower beginning on leaves, soft patter swelling in | Seeded weather cycle turns to rain (every 40 s step); ambience wind rises, rain particles fade in
+weather-cloud.opus | weather-cloud | A soft gust of wind passing over a meadow, grass and leaves rustling briefly then settling | Seeded weather cycle turns to cloud; sun dims to 70 %
+round-start.opus | round-start | Soft warm breeze swelling over a grassy valley with one short cheerful bird chirp and a light wooden tap at the end | A round begins or a saved round is restored; HUD appears, intro message shows
+lesson-complete.opus | lesson-complete | Gentle three-note ascending wooden xylophone flourish, bright and encouraging, short | Learn mode: lesson goal reached, banner clears, toast "Lesson complete"
+pause.opus | pause | Soft muffled cloth thump with a gentle low felt piano tap, calm and quiet | Pause (P, Esc, button, gamepad Start, tab hidden); audio context sleeps 350 ms later
+resume.opus | resume | Light airy two-note chime rising, a gentle unpause ping | Resume from the pause overlay; clock baseline shifts so paused time never counts

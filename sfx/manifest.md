@@ -23,3 +23,8 @@ Generated with MOSS-SoundEffect v2.0, 48 kHz mono Opus (96 kbps VBR, loudness-no
 | hint.opus | hint | Sparkling glissando shimmer, a soft magic twinkle |
 | star.opus | star | Single high glockenspiel ping, bright star chime |
 | weather-rain.opus | weather-rain | Gentle rain shower beginning on leaves, soft patter swelling in |
+| round-start.opus | round-start | Soft warm breeze swelling over a grassy valley with one short cheerful bird chirp and a light wooden tap at the end |
+| lesson-complete.opus | lesson-complete | Gentle three-note ascending wooden xylophone flourish, bright and encouraging, short |
+| weather-cloud.opus | weather-cloud | A soft gust of wind passing over a meadow, grass and leaves rustling briefly then settling |
+| pause.opus | pause | Soft muffled cloth thump with a gentle low felt piano tap, calm and quiet |
+| resume.opus | resume | Light airy two-note chime rising, a gentle unpause ping |

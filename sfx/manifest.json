@@ -112,5 +112,35 @@
     "seconds": 3,
     "prompt": "Gentle rain shower beginning on leaves, soft patter swelling in",
     "event": "weather-rain"
+  },
+  {
+    "name": "round-start",
+    "seconds": 2,
+    "prompt": "Soft warm breeze swelling over a grassy valley with one short cheerful bird chirp and a light wooden tap at the end",
+    "event": "round-start"
+  },
+  {
+    "name": "lesson-complete",
+    "seconds": 2,
+    "prompt": "Gentle three-note ascending wooden xylophone flourish, bright and encouraging, short",
+    "event": "lesson-complete"
+  },
+  {
+    "name": "weather-cloud",
+    "seconds": 3,
+    "prompt": "A soft gust of wind passing over a meadow, grass and leaves rustling briefly then settling",
+    "event": "weather-cloud"
+  },
+  {
+    "name": "pause",
+    "seconds": 1,
+    "prompt": "Soft muffled cloth thump with a gentle low felt piano tap, calm and quiet",
+    "event": "pause"
+  },
+  {
+    "name": "resume",
+    "seconds": 1,
+    "prompt": "Light airy two-note chime rising, a gentle unpause ping",
+    "event": "resume"
   }
 ]

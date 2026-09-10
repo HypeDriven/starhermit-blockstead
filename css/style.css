@@ -152,6 +152,17 @@ h3 { margin: .6em 0 .3em; }
 
 .title-card { width: min(96vw, 640px); margin: auto; text-align: center; }
 .title-card h1 { font-size: clamp(2.4rem, 8vw, 4rem); letter-spacing: .02em; text-shadow: 0 2px 18px #0008; }
+.key-art {
+  display: block; width: min(92vw, 560px); height: auto; max-height: 34vh; object-fit: cover;
+  margin: 0 auto 6px; border-radius: 16px; border: 1px solid #ffffff22; box-shadow: 0 10px 30px #0006;
+}
+@media (max-height: 560px) { .key-art { max-height: 22vh; } }
+.results-art {
+  display: block; width: 100%; max-width: 420px; height: auto; max-height: 18vh; object-fit: cover;
+  margin: 4px auto 8px; border-radius: 12px; border: 1px solid #ffffff22;
+}
+@media (max-width: 639px) { .results-art { max-height: 12vh; } }
+@media (max-height: 640px) { .results-art { display: none; } }
 .title-secondary, .title-tertiary { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
 
 .btn {

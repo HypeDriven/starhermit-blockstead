@@ -33,6 +33,7 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.txt': 'text/plain; charset=utf-8',
   '.ico': 'image/x-icon',
   '.opus': 'audio/ogg'
@@ -197,6 +198,7 @@ function serveStatic(req, res, url) {
   const file = path.normalize(path.join(ROOT, p));
   if (!(file === ROOT || file.startsWith(ROOT + path.sep)) ||
       file.startsWith(DATA_DIR + path.sep) || file === DATA_DIR ||
+      /^\/(tests|tools|node_modules)(\/|$)/.test(file.slice(ROOT.length).split(path.sep).join('/')) ||
       file.slice(ROOT.length).split(path.sep).some(seg => seg.startsWith('.'))) {
     res.writeHead(403); return res.end('forbidden');
   }
