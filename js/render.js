@@ -248,9 +248,68 @@ export function createRenderer(opts) {
   // ---------- camera control (spring, interruptible) ----------
   const camTarget = { theta: FRAMING.theta, phi: FRAMING.phi, dist: FRAMING.dist };
   const camCur = { theta: FRAMING.theta, phi: FRAMING.phi, dist: FRAMING.dist };
+  // Safe rectangle of the canvas not covered by HUD panels (fractions of the
+  // canvas). Panels hugging an edge carve that edge off.
+  function hudInsets() {
+    const ins = { l: 0, r: 0, t: 0, b: 0 };
+    const rect = renderer.domElement.getBoundingClientRect();
+    const W = rect.width || 1, H = rect.height || 1;
+    for (const id of ['hud-top', 'hud-goals', 'hud-actions', 'hud-palette', 'hud-message']) {
+      const el = document.getElementById(id);
+      if (!el || el.classList.contains('hidden') || !el.offsetParent) continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      const e = { l: (r.left - rect.left) / W, t: (r.top - rect.top) / H, r: (r.right - rect.left) / W, b: (r.bottom - rect.top) / H };
+      if (e.b <= 0.4 && e.r - e.l > 0.5) ins.t = Math.max(ins.t, e.b);
+      else if (e.t >= 0.6) ins.b = Math.max(ins.b, 1 - e.t);
+      else if (e.r <= 0.42) ins.l = Math.max(ins.l, e.r);
+      else if (e.l >= 0.58) ins.r = Math.max(ins.r, 1 - e.l);
+      else if (e.b <= 0.45) ins.t = Math.max(ins.t, e.b);
+      else if (e.t >= 0.5) ins.b = Math.max(ins.b, 1 - e.t);
+    }
+    if (ins.l + ins.r > 0.55) { ins.l = 0; ins.r = 0; }
+    if (ins.t + ins.b > 0.6) { ins.t = Math.min(ins.t, 0.3); ins.b = Math.min(ins.b, 0.3); }
+    return ins;
+  }
+
+  // Distance at which the whole plot (all columns up to the max height) fits
+  // inside the HUD-free rectangle at the given orbit angles.
+  function fitDistance(theta, phi) {
+    const ins = hudInsets();
+    const freeW = Math.max(0.35, 1 - ins.l - ins.r - 0.06);
+    const freeH = Math.max(0.35, 1 - ins.t - ins.b - 0.06);
+    const hw = plotW / 2 + 0.6, hd = plotH / 2 + 0.6, top = Math.max(2.5, (cfg && cfg.plot && cfg.plot.maxH) || 3);
+    const corners = [];
+    for (const x of [-hw, hw]) for (const z of [-hd, hd]) for (const y of [0, top]) corners.push(new THREE.Vector3(x, y, z));
+    const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const tanH = tanV * camera.aspect;
+    const fwd = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.Vector3();
+    const dirCam = new THREE.Vector3(Math.sin(theta) * Math.cos(phi), Math.sin(phi), Math.cos(theta) * Math.cos(phi));
+    const look = new THREE.Vector3(0, 0.8, 0);
+    fwd.copy(dirCam).negate();
+    right.crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+    up.crossVectors(right, fwd).normalize();
+    let need = 0;
+    const rel = new THREE.Vector3();
+    for (const c of corners) {
+      rel.copy(c).sub(look);
+      const depth = -rel.dot(fwd); // positive toward the camera
+      const x = Math.abs(rel.dot(right)), y = Math.abs(rel.dot(up));
+      need = Math.max(need, x / (tanH * freeW) + depth, y / (tanV * freeH) + depth);
+    }
+    return Math.max(5, need);
+  }
+
   function resetCamera() {
     camTarget.theta = FRAMING.theta; camTarget.phi = FRAMING.phi;
-    camTarget.dist = FRAMING.dist + Math.max(plotW, plotH) * 0.6;
+    camTarget.dist = fitDistance(FRAMING.theta, FRAMING.phi);
+  }
+  function fitCamera() {
+    camTarget.dist = fitDistance(camTarget.theta, camTarget.phi);
+  }
+  function topDownCamera() {
+    camTarget.phi = 1.35;
+    camTarget.dist = fitDistance(camTarget.theta, 1.35);
   }
 
   // ---------- picking ----------
@@ -285,7 +344,7 @@ export function createRenderer(opts) {
       dragMoved += Math.abs(dx) + Math.abs(dy);
       if (dragMoved > 8) { // camera gesture: orbit
         camTarget.theta -= dx * 0.005;
-        camTarget.phi = Math.min(1.35, Math.max(0.35, camTarget.phi - dy * 0.004));
+        camTarget.phi = Math.min(1.35, Math.max(0.55, camTarget.phi - dy * 0.004));
       }
       lastX = ev.clientX; lastY = ev.clientY;
     } else if (ev.pointerType === 'mouse') {
@@ -310,7 +369,10 @@ export function createRenderer(opts) {
   }
   function onWheel(ev) {
     ev.preventDefault();
-    camTarget.dist = Math.min(26, Math.max(5, camTarget.dist + ev.deltaY * 0.01));
+    // Zoom bounds follow the plot: never closer than half the fitted distance,
+    // never further than twice it.
+    const fit = fitDistance(camTarget.theta, camTarget.phi);
+    camTarget.dist = Math.min(fit * 2, Math.max(fit * 0.5, camTarget.dist + ev.deltaY * 0.01));
   }
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
   renderer.domElement.addEventListener('pointermove', onPointerMove);
@@ -429,6 +491,7 @@ export function createRenderer(opts) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    if (cfg) fitCamera();
   }
   window.addEventListener('resize', resize);
   resize();
@@ -501,7 +564,7 @@ export function createRenderer(opts) {
 
   return {
     setState, highlightTargets, ghost, setPalette, setWeather, setQuality,
-    setReducedMotion, resetCamera, resize, setRunning,
+    setReducedMotion, resetCamera, fitCamera, topDownCamera, resize, setRunning,
     flashCell: (x, y, h) => flashes.push({ x, y, h, t: 0, kind: 'place' }),
     skipAnimations: () => { flashes.length = 0; camCur.theta = camTarget.theta; camCur.phi = camTarget.phi; camCur.dist = camTarget.dist; },
     dispose: () => {

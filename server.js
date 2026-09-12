@@ -112,7 +112,7 @@ async function handleApi(req, res, url, ip) {
   if (!rateOk(ip, 1)) return json(res, 429, { error: 'rate-limited' });
 
   if (req.method === 'GET' && url.pathname === '/api/v1/time') {
-    return json(res, 200, { now: Date.now() });
+    return json(res, 200, { now: Date.now(), serverTime: Date.now() });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/v1/daily') {

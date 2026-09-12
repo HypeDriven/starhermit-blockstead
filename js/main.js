@@ -158,7 +158,10 @@ import { createRenderer } from './render.js';
       const t1 = Date.now();
       if (!r.ok) return;
       const j = await r.json();
-      timeOffset = j.now - Math.round((t0 + t1) / 2);
+      // Platform contract is { serverTime }; the local dev server answers { now }.
+      const serverNow = Number(j && (j.serverTime != null ? j.serverTime : j.now));
+      if (!Number.isFinite(serverNow) || serverNow <= 0) { hosted = false; return; }
+      timeOffset = serverNow - Math.round((t0 + t1) / 2);
       hosted = true;
     } catch (e) { hosted = false; }
   }
@@ -566,10 +569,11 @@ import { createRenderer } from './render.js';
           board, name: displayName(), player: platformUserId || null,
           sessionId, envelope, assists: currentAssists()
         })
-      }).then(r => r.json()).then(j => {
+      }).then(r => r.ok ? r.json() : { error: 'unavailable' }).then(j => {
         if (j && j.accepted) UI.toast('Score validated and posted');
+        else if (j && j.error === 'unavailable') UI.toast('Online board unavailable — result saved on this device');
         else if (j && j.error) UI.toast('Score rejected: ' + (j.reason || j.error));
-      }).catch(() => {});
+      }).catch(() => { UI.toast('Online board unavailable — result saved on this device'); });
     }
   }
 
@@ -726,6 +730,7 @@ import { createRenderer } from './render.js';
     else if (k === 'u') doUndo();
     else if (k === 'h') doHint();
     else if (k === 'c') { if (renderer) renderer.resetCamera(); }
+    else if (k === 't') { if (renderer) renderer.topDownCamera(); }
     else if (k === 's') { if (renderer) renderer.skipAnimations(); UI.message('Animations skipped'); }
     else if (k >= '1' && k <= '5') {
       const i = +k - 1;
@@ -1189,6 +1194,7 @@ import { createRenderer } from './render.js';
     onHint: () => doHint(),
     onSkip: () => { if (renderer) renderer.skipAnimations(); UI.message('Animations skipped'); },
     onCamera: () => { if (renderer) renderer.resetCamera(); },
+    onTopDown: () => { if (renderer) renderer.topDownCamera(); },
     onStartRound: () => startSetupRound(),
     onLessonQuit: () => { round.lesson = null; UI.lessonBanner(null); leaveRound(true); showLessons(); },
     onWebglContinue: () => {

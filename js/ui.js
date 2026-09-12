@@ -433,6 +433,7 @@
     bind('btn-hint', function () { hooks.onHint(); });
     bind('btn-skip', function () { hooks.onSkip(); });
     bind('btn-camera', function () { hooks.onCamera(); });
+    bind('btn-topdown', function () { hooks.onTopDown(); });
     bind('btn-start-round', function () { hooks.onStartRound(); });
     bind('lesson-quit', function () { hooks.onLessonQuit(); });
     bind('webgl-continue', function () { hooks.onWebglContinue(); });

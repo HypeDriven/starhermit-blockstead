@@ -55,6 +55,11 @@ body.high-contrast :focus-visible { outline-color: #00e5ff; }
 .goal-item { background: #ffffff14; border-radius: 8px; padding: 5px 9px; font-size: .9em; }
 .goal-done { opacity: .75; text-decoration: line-through; }
 
+#hud-message {
+  top: calc(max(env(safe-area-inset-top), 8px) + 60px); left: 50%; transform: translateX(-50%);
+  width: min(94vw, 720px); text-align: center; font-weight: 600;
+}
+
 /* rails: wide desktop */
 @media (min-width: 1024px) {
   #hud-goals { top: 84px; left: max(env(safe-area-inset-left), 14px); right: auto; width: min(24vw, 300px); }
@@ -72,20 +77,32 @@ body.high-contrast :focus-visible { outline-color: #00e5ff; }
   #hud-top { font-size: .85em; gap: 6px; padding: 6px 8px; width: 98vw; }
   .hud-stats span { margin-left: 6px; font-size: 1em; }
   #hud-moves { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; }
-  #hud-goals { top: 64px; left: 8px; right: 8px; width: auto; max-height: 22vh; overflow: auto; padding: 6px 10px; }
+  #hud-goals { top: 92px; left: 8px; right: 8px; width: auto; max-height: 22vh; overflow: auto; padding: 6px 10px; }
   #goals-list { flex-direction: row; flex-wrap: wrap; gap: 4px; }
   .goal-item { font-size: .8em; padding: 3px 7px; }
-  #hud-palette { bottom: calc(max(env(safe-area-inset-bottom), 8px) + 88px); left: 50%; transform: translateX(-50%); max-width: 96vw; overflow-x: auto; }
-  #hud-actions { bottom: max(env(safe-area-inset-bottom), 8px); left: 50%; transform: translateX(-50%); }
-  .btn.icon { min-width: 56px; height: 56px; font-size: 22px; }
-  .btn-sub { font-size: 11px; }
+  #hud-palette { bottom: calc(max(env(safe-area-inset-bottom), 8px) + 80px); left: 50%; transform: translateX(-50%); max-width: 98vw; overflow-x: auto; padding: 6px; gap: 6px; }
+  #hud-actions { bottom: max(env(safe-area-inset-bottom), 8px); left: 50%; transform: translateX(-50%); max-width: 98vw; padding: 6px; gap: 4px; }
+  #hud-actions .btn.icon { min-width: 44px; padding: 6px 4px; }
+  .btn.icon { min-width: 52px; height: 56px; min-height: 56px; font-size: 20px; padding: 6px 8px; }
+  .btn-sub { font-size: 10px; white-space: nowrap; }
+  #hud-top .btn.icon { min-width: 44px; height: 44px; min-height: 44px; font-size: 18px; }
+  /* guidance sits just above the trays, never over the goals */
+  #hud-message { top: auto; bottom: calc(max(env(safe-area-inset-bottom), 8px) + 160px); font-size: .9em; padding: 6px 10px; }
 }
 /* landscape mobile: narrow right rail, keep 44px targets */
 @media (max-width: 959px) and (orientation: landscape) and (max-height: 540px) {
-  #hud-goals { top: 60px; right: 8px; left: auto; width: min(30vw, 220px); max-height: 60vh; }
-  #hud-palette { bottom: calc(max(env(safe-area-inset-bottom), 6px)); left: 8px; transform: none; }
-  #hud-actions { bottom: max(env(safe-area-inset-bottom), 6px); right: 8px; left: auto; transform: none; }
-  .btn.icon { min-width: 48px; height: 48px; font-size: 20px; }
+  #hud-top { width: calc(100vw - 16px); font-size: .85em; gap: 8px; padding: 4px 8px; }
+  #hud-top .btn.icon { min-width: 40px; height: 40px; min-height: 40px; font-size: 16px; }
+  /* goals on the left, actions column on the right, palette bottom-centre; none overlap */
+  #hud-goals { top: 58px; left: 8px; right: auto; width: min(26vw, 200px); max-height: calc(100vh - 130px); overflow: auto; padding: 6px 8px; }
+  #hud-goals h2 { font-size: .9em; }
+  .goal-item { font-size: .8em; padding: 3px 7px; }
+  #hud-palette { bottom: calc(max(env(safe-area-inset-bottom), 6px)); left: 50%; transform: translateX(-50%); max-width: calc(100vw - 200px); overflow-x: auto; padding: 6px; gap: 6px; }
+  #hud-actions { top: 58px; bottom: auto; right: 8px; left: auto; transform: none; flex-direction: column; padding: 6px; gap: 4px; }
+  .btn.icon { min-width: 46px; height: 46px; min-height: 46px; font-size: 18px; padding: 4px 6px; }
+  #hud-actions .btn.icon { min-width: 44px; height: 44px; min-height: 44px; }
+  .btn-sub { font-size: 10px; white-space: nowrap; }
+  #hud-message { top: auto; bottom: calc(max(env(safe-area-inset-bottom), 6px) + 64px); left: 8px; transform: none; width: min(44vw, 360px); text-align: left; font-size: .85em; padding: 5px 9px; }
 }
 /* left-handed mirrors horizontal placement */
 body.left-handed #hud-palette { left: auto; right: max(env(safe-area-inset-right), 10px); transform: none; }
@@ -98,10 +115,6 @@ body.left-handed #hud-actions { left: max(env(safe-area-inset-left), 10px); righ
 }
 .palette-icon { font-size: 1.2em; }
 
-#hud-message {
-  top: calc(max(env(safe-area-inset-top), 8px) + 60px); left: 50%; transform: translateX(-50%);
-  width: min(94vw, 720px); text-align: center; font-weight: 600;
-}
 
 /* ---------- board mirror ---------- */
 #board-mirror {
