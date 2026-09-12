@@ -286,10 +286,11 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 - Server script `server.js`: `GET /api/v1/time` (client computes a round-trip-adjusted offset for the daily countdown and date), `GET /api/v1/daily`, `GET /api/v1/leaderboard?board=` (top 50, tie order as §4), `POST /api/v1/score` (envelope replayed with `Session.verify` against trusted content only; duplicate envelopes idempotent; 5000-entry cap), `POST /api/v1/achievement` (idempotent per player key). Per-IP token bucket (30 tokens, +1 per 2 s, score costs 5), 64 KB body limit, structured `{error}` responses that the client shows as toasts.
 - Boards: `global` (score chase), `daily:<date>`, `journey:<id>`, `challenge:<id>`; practice and learn are unranked.
 - Offline behaviour: when `/api/v1/time` fails the client marks itself unhosted, keeps a local leaderboard cache (`blockstead.leaderboards.v1`) and labels boards "casual".
+- Launch token (`main.js#initPlatform`): read from the URL fragment `#game_token=<jwt>` (optional `&session_id=`, stripped after the read; query `?token=`/`?launch_token=` kept for local dev), decoded for `sub` + `game_scope` (never hard-coded), sent as `Authorization: Bearer` on every `/api` call, re-minted every 45 min via `POST /api/v1/games/{slug}/launch-token` (60 s retry). The profile nickname from `GET /api/v1/users/{sub}/profile` (never `/api/v1/me`, never usernames; `Player <id8>` fallback) replaces the `Guest-xxxx` label on the profile screen and on score/achievement submissions (which also carry the account id; `server.js` stores it on board entries so rows resolve to nicknames, own row marked "You"). Board fetches carry the Bearer header; when the own-server routes 404 on-platform the client falls back to the local board with no console errors.
 
 **Not used**
 
-- Platform identity, profile display name or avatar (the player is `Guest-xxxx` from a random session id), presence heartbeats, activity start/end, per-game cloud settings or cloud saves, friends filtering, realtime rooms, matchmaking, chat, voice, entitlements. Achievements are delivered to the server keyed by the guest name only.
+- Avatars, presence heartbeats, activity start/end, per-game cloud settings or cloud saves, friends filtering, realtime rooms, matchmaking, chat, voice, entitlements. Achievements are delivered to the server keyed by the account id (or guest name offline) and also kept locally in the save document.
 
 ## 13. Technical architecture
 
@@ -336,7 +337,7 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 ## 16. Known limitations
 
 - No localization: all strings are English literals (§10).
-- The player identity is a per-load random guest name; scores and achievements are attributed to that name, not to a platform account, and the local save is not cloud-synced.
+- Without a launch token the player identity is a per-load random guest name attributed to scores and achievements; the local save is not cloud-synced.
 - Leaderboards are global only; no friends filter. The Scores screen exposes only the `global` and today's `daily` boards (journey and challenge boards are submitted but not browsable in the UI).
 - Landlock can only occur when removal is impossible (remove tool disabled, or every column top is rock); with the remove tool on, a full plot always has a legal remove, so score chase effectively ends by resignation rather than sealing.
 - The greedy hint in score chase can cycle (place, then the next wave's goals need removal) — it is a suggestion, not a solver.
@@ -349,7 +350,7 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 ## Design intent not yet implemented
 
 - String table with the nine target locales, chosen from `navigator.language` with a settings override.
-- StarHermit identity (display name and avatar on results and boards), presence heartbeats and activity start/end pairing, per-game cloud settings and cloud-saved progress.
+- StarHermit avatar on the profile screen, presence heartbeats and activity start/end pairing, per-game cloud settings and cloud-saved progress (launch-token identity with board nickname resolution is done; scores/achievements key off the account id when hosted).
 - Friends-filtered leaderboards and a shareable seed link for dailies and challenges.
 - Journey and challenge board tabs on the Scores screen.
 - Keyboard camera orbit (e.g. `Q`/`E`, `+`/`−`).

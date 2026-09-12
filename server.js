@@ -142,6 +142,7 @@ async function handleApi(req, res, url, ip) {
     const env = body && body.envelope;
     const board = String((body && body.board) || 'global').slice(0, 80);
     const name = String((body && body.name) || 'Guest').slice(0, 24);
+    const player = String((body && body.player) || '').slice(0, 64);
     if (!env) return json(res, 400, { error: 'missing-envelope' });
     const cfg = trustedConfig(env.contentId, env.kind);
     if (!cfg) return json(res, 400, { error: 'unknown-content' });
@@ -155,7 +156,7 @@ async function handleApi(req, res, url, ip) {
       e.finalHash === verdict.finalHash && e.sessionId === String(body.sessionId || sessionId));
     if (!dup) {
       boards.entries.push({
-        board, name, score: verdict.score,
+        board, name, player, score: verdict.score,
         ruleset: env.contentId, contentVersion: env.contentVersion, seed: env.seed >>> 0,
         assists: body.assists || {}, durationMs: env.elapsedMs | 0,
         invalid: env.invalid | 0,

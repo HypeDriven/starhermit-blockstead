@@ -31,7 +31,122 @@ import { createRenderer } from './render.js';
   }
 
   const sessionId = 's' + Math.random().toString(36).slice(2, 10);
-  let playerName = 'Guest-' + sessionId.slice(1, 5);
+  let playerName = 'Guest-' + sessionId.slice(1, 5); // offline fallback label
+
+  // ---------- platform: launch token, identity, authenticated /api ----------
+  // The platform opens the game as index.html#game_token=<jwt> (optional
+  // &session_id=), stripped after the read. The JWT carries sub = account id
+  // and game_scope = this game's slug — never hard-coded. Query forms are
+  // local-dev fallbacks. Memory only, never persisted.
+  let launchToken = null, platformUserId = null, platformSlug = null;
+  let profileName = null;            // signed-in player's nickname
+  const profileNames = {};           // userId -> Promise<string> (cached)
+  let refreshTimer = null, refreshRetryTimer = null;
+
+  function decodeJwt(t) {
+    try {
+      const seg = String(t).split('.')[1];
+      if (!seg) return null;
+      let b64 = seg.replace(/-/g, '+').replace(/_/g, '/');
+      b64 += '='.repeat((4 - (b64.length % 4)) % 4);
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return JSON.parse(new TextDecoder().decode(bytes));
+    } catch (e) { return null; }
+  }
+
+  function readLaunchToken() {
+    try {
+      const h = new URLSearchParams(String(location.hash || '').replace(/^#/, ''));
+      const t = h.get('game_token');
+      if (t) {
+        h.delete('game_token');
+        h.delete('session_id');
+        const rest = h.toString();
+        history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : ''));
+        return t;
+      }
+      const q = new URLSearchParams(location.search);
+      return q.get('game_token') || q.get('token') || q.get('launch_token') || null;
+    } catch (e) { return null; }
+  }
+
+  function apiHeaders(extra) {
+    const h = extra || {};
+    if (launchToken) h['Authorization'] = 'Bearer ' + launchToken;
+    return h;
+  }
+
+  function initPlatform() {
+    launchToken = readLaunchToken();
+    if (launchToken) {
+      const claims = decodeJwt(launchToken);
+      if (!claims) launchToken = null; // malformed: standalone
+      else {
+        if (typeof claims.sub === 'string' && claims.sub) platformUserId = claims.sub;
+        if (typeof claims.game_scope === 'string' && claims.game_scope) platformSlug = claims.game_scope;
+        if (!platformUserId || !platformSlug) launchToken = null;
+      }
+    }
+    if (launchToken) {
+      scheduleTokenRefresh();
+      fetchOwnProfile();
+    }
+  }
+
+  // The token lives 60 min; scoped tokens may re-mint via the game's
+  // launch-token route. Retry a failed re-mint after ~60 s.
+  function scheduleTokenRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(refreshLaunchToken, 45 * 60 * 1000);
+  }
+  function refreshLaunchToken() {
+    if (!launchToken || !platformSlug) return Promise.resolve(false);
+    return fetch('/api/v1/games/' + encodeURIComponent(platformSlug) + '/launch-token', {
+      method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }), body: '{}'
+    }).then(r => r.json().catch(() => null)).then(j => {
+      if (j && typeof j.token === 'string' && j.token) {
+        launchToken = j.token;
+        const claims = decodeJwt(launchToken);
+        if (claims && claims.sub) platformUserId = claims.sub;
+        if (claims && claims.game_scope) platformSlug = claims.game_scope;
+        return true;
+      }
+      retryTokenRefresh();
+      return false;
+    }).catch(() => { retryTokenRefresh(); return false; });
+  }
+  function retryTokenRefresh() {
+    if (refreshRetryTimer || !launchToken) return;
+    refreshRetryTimer = setTimeout(() => {
+      refreshRetryTimer = null;
+      refreshLaunchToken();
+    }, 60000);
+  }
+
+  // Display names: the profile nickname is the only profile read a
+  // game-scoped token may make (never /api/v1/me, never usernames).
+  // Off-platform the call fails and "Player <id8>" is used. Cached per id.
+  function profileFor(userId) {
+    if (!userId || typeof userId !== 'string') return Promise.resolve('player');
+    if (profileNames[userId]) return profileNames[userId];
+    const p = fetch('/api/v1/users/' + encodeURIComponent(userId) + '/profile', { headers: apiHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => (j && typeof j.nickname === 'string' && j.nickname ? j.nickname : null))
+      .then(n => n || ('Player ' + userId.slice(0, 8)))
+      .catch(() => 'Player ' + userId.slice(0, 8));
+    profileNames[userId] = p;
+    return p;
+  }
+  function fetchOwnProfile() {
+    if (!platformUserId) return Promise.resolve(null);
+    return profileFor(platformUserId).then(n => {
+      profileName = n.slice(0, 40);
+      return profileName;
+    });
+  }
+  function displayName() { return profileName || playerName; }
 
   // ---------- platform time (round-trip adjusted, offline fallback) ----------
   let timeOffset = 0, hosted = false;
@@ -39,7 +154,7 @@ import { createRenderer } from './render.js';
   async function syncTime() {
     try {
       const t0 = Date.now();
-      const r = await fetch('/api/v1/time', { cache: 'no-store' });
+      const r = await fetch('/api/v1/time', { cache: 'no-store', headers: apiHeaders() });
       const t1 = Date.now();
       if (!r.ok) return;
       const j = await r.json();
@@ -376,8 +491,8 @@ import { createRenderer } from './render.js';
   function deliverAchievement(key) {
     if (!hosted) return;
     fetch('/api/v1/achievement', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, player: playerName })
+      method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ key, player: platformUserId || playerName })
     }).catch(() => {});
   }
 
@@ -446,8 +561,11 @@ import { createRenderer } from './render.js';
     Store.saveBoards(boards);
     if (hosted) {
       fetch('/api/v1/score', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ board, name: playerName, sessionId, envelope, assists: currentAssists() })
+        method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          board, name: displayName(), player: platformUserId || null,
+          sessionId, envelope, assists: currentAssists()
+        })
       }).then(r => r.json()).then(j => {
         if (j && j.accepted) UI.toast('Score validated and posted');
         else if (j && j.error) UI.toast('Score rejected: ' + (j.reason || j.error));
@@ -900,8 +1018,10 @@ import { createRenderer } from './render.js';
       unlocked: stars >= t.unlockStars, active: settings.theme === t.id
     }));
     UI.renderProfile({
-      name: playerName,
-      subtitle: hosted ? 'Connected to host — scores are validated.' : 'Local guest profile — fully playable offline.',
+      name: displayName(),
+      subtitle: hosted
+        ? (platformUserId ? 'Connected as ' + displayName() + ' — scores are validated.' : 'Connected to host — scores are validated.')
+        : 'Local guest profile — fully playable offline.',
       stats: [
         'Rounds played: ' + progress.stats.rounds,
         'Settlements completed: ' + progress.stats.wins,
@@ -930,7 +1050,7 @@ import { createRenderer } from './render.js';
     let entries = [], note = '';
     if (hosted) {
       try {
-        const r = await fetch('/api/v1/leaderboard?board=' + encodeURIComponent(lbActive));
+        const r = await fetch('/api/v1/leaderboard?board=' + encodeURIComponent(lbActive), { headers: apiHeaders() });
         const j = await r.json();
         entries = j.entries || [];
         note = 'Validated by server replay. Ties: fewer invalid actions, then faster time.';
@@ -940,6 +1060,14 @@ import { createRenderer } from './render.js';
       entries = Store.sortEntries(Store.loadBoards().entries.filter(e => e.board === lbActive));
       note = 'Offline — showing locally recorded scores (casual board).';
     }
+    // Resolve account ids to profile nicknames; mark the signed-in row.
+    entries = await Promise.all(entries.map(async e => {
+      if (!e.player) return e;
+      const name = await profileFor(e.player);
+      return Object.assign({}, e, {
+        name: e.player === platformUserId ? 'You (' + name + ')' : name
+      });
+    }));
     UI.renderLeaderboard({
       boards, active: lbActive, note,
       entries: entries.map(e => ({
@@ -1121,6 +1249,7 @@ import { createRenderer } from './render.js';
   async function boot() {
     document.getElementById('app').setAttribute('data-screen', 'boot');
     bootRenderer();
+    initPlatform();
     await syncTime();
     applyVisualSettings();
     showTitle();
