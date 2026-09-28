@@ -256,8 +256,15 @@
     form.textContent = '';
     settingsSchema.forEach(function (sec) {
       var fs = el('fieldset');
+      if (sec.id) fs.id = sec.id;
       fs.appendChild(el('legend', null, sec.title));
       sec.items.forEach(function (item) {
+        if (item.type === 'custom') { // self-rendering block (e.g. Graphics quality panel)
+          var box = el('div');
+          fs.appendChild(box);
+          item.render(box);
+          return;
+        }
         var label = el('label');
         label.textContent = item.label + ' ';
         var input;

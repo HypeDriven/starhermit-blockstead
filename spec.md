@@ -12,14 +12,14 @@ Present-tense description of the shipped game. Every statement below is true of 
 | Players | 1; asynchronous score comparison on validated leaderboards |
 | Session | 2–4 min per journey stage, 5–10 min for a daily or challenge, open-ended in score chase |
 | Platforms | Desktop and mobile browsers (portrait and landscape); keyboard, mouse, touch, basic gamepad |
-| Rendering | Three.js r-module (`vendor/three.module.min.js`) WebGL scene with a full semantic-HTML mirror; playable with WebGL unavailable |
+| Rendering | Three.js r160 (`vendor/three.module.min.js`, addons from the same revision in `vendor/three-addons/`, resolved through an import map) WebGL scene with post-processing and quality presets, plus a full semantic-HTML mirror; playable with WebGL unavailable |
 | Hosting | Static files plus an optional authoritative Node script (`server.js`) declared in `starhermit.txt` |
 
 ### File map
 
 | Path | Responsibility |
 |---|---|
-| `index.html` | Single page: HUD, board mirror, all DOM screens, script order (`rng → rules → content → store → session → audio → ui → main`) |
+| `index.html` | Single page: HUD, board mirror, all DOM screens, import map (`three`, `three/addons/`), script order (`rng → rules → content → store → session → audio → ui → main`) |
 | `css/style.css` | Responsive shell: HUD rails/trays per breakpoint, screens, panels, key-art and results-art sizing, reduced-motion and high-contrast overrides |
 | `js/rng.js` | mulberry32 PRNG, FNV-1a `hashString`, three derived streams (rules / decor / AV) |
 | `js/rules.js` | Pure deterministic rules engine: `createGame`, `applyCommand`, legality checks, goals, scoring, hints, hashing, serialization |
@@ -27,7 +27,9 @@ Present-tense description of the shipped game. Every statement below is true of 
 | `js/session.js` | Command ids, undo stack, replay envelope, periodic state hashes, `verify()` used by the server |
 | `js/store.js` | Checksummed local save document (`blockstead.save.v1`), local leaderboard cache, tie-break sort |
 | `js/audio.js` | WebAudio buses, sample playback with synth fallback, captions, valley ambience, generative pad |
-| `js/render.js` | Three.js scene: plot tiles, block meshes, seeded decor, weather, camera spring, picking, ghost/targets, quality tiers |
+| `js/render.js` | Three.js scene: plot tiles, block meshes, seeded decor, sky/clouds, weather and ambient particles, camera spring, picking, ghost/targets, title showcase, `setGraphics`/`graphicsInfo`, post chain, adaptive resolution |
+| `js/gfx.js` | Pure graphics quality model: presets, categories, GPU detection (`detectPreset`/`autoPreset`), `resolve`, `presetTier`, `choosePreset`, `setOverride`, `describe` |
+| `js/gfx-panel.js` | Settings › Graphics controls and their strings in all nine target locales |
 | `js/ui.js` | DOM shell: screen stack, HUD, palette, board mirror, results, settings form, help, profile, leaderboards, lessons, toasts, live region |
 | `js/main.js` | Controller and state machine; the only module that issues commands into the session |
 | `server.js` | Static server (refuses `data/`, `tests/`, `tools/`, `node_modules/`, dotfiles) plus `/api/v1/{time,daily,leaderboard,score,achievement}` |
@@ -36,6 +38,7 @@ Present-tense description of the shipped game. Every statement below is true of 
 | `assets/` | `key-art.webp` (title), `results-win.webp`, `results-lose.webp` |
 | `coverart.png`, `icon.png`, `favicon.svg` | Platform cover (1200×675), icon, tab favicon |
 | `tests/run-tests.js` | Node unit and content validators (`npm test`) |
+| `tests/gfx.test.mjs` | `node --test` unit tests for `gfx.js` and the Graphics panel strings (part of `npm test`) |
 | `tests/e2e.mjs` | Playwright playthrough on desktop and mobile viewports (`npm run test:e2e`) |
 | `tests/browser-smoke.html`, `tests/shot-game.html` | Manual iframe harnesses (not shipped) |
 | `starhermit.txt` | `name=Blockstead`, `launch=index.html`, `owner=…`, `server=server.js`, `cover=coverart.png` |
@@ -198,7 +201,7 @@ On wave `w` (starting at 1): a count goal `2 + w` of a random placeable type; th
 
 ## 8. Art direction
 
-**World.** A toy-scale voxel valley: a square soil plot on a green disc, low-poly cone pines, a round pond, six distant hills, a sun with soft shadows. Blocks are 0.92-unit cubes; plants get a leaf cap, lamps an emissive body with a dark cap, rocks are slightly scaled and rotated per cell. Hero of the screen: the plot and its stacks, framed by an authored camera (`FRAMING` θ 0.65, φ 0.95, distance 11 + 0.6 × plot size).
+**World.** A toy-scale voxel valley: a square soil plot on a green disc, low-poly cone pines, a round pond, six distant hills, a sun with soft shadows. The title screen shows a small finished homestead (6×6 showcase plot) slowly turning behind the menu. Blocks are 0.92-unit cubes; plants get a leaf cap, lamps an emissive body with a dark cap, rocks are slightly scaled and rotated per cell. Hero of the screen: the plot and its stacks, framed by an authored camera (`FRAMING` θ 0.65, φ 0.95, distance 11 + 0.6 × plot size).
 
 **Palette.**
 
@@ -220,7 +223,9 @@ Colour is never the only cue: each block has an icon (🪵 🪨 🧊 🌿 🏮 �
 
 **Typography.** System UI stack, 16 px base (20 px with "Larger text"), headings `clamp(1.5rem, 4.5vw, 2.1rem)`, title `clamp(2.4rem, 8vw, 4rem)`, tabular numerals on the clock.
 
-**Motion.** Camera uses an exponential spring (`1 − e^(−7·dt)`), interruptible, with a 6-unit intro swoop; placement/removal is a 0.25 s scale pop; rain is a 600/1600-point particle field that fades in over the weather change. Weather (`main.js › startWeather`) advances every 40 s through a seeded 6-entry order of sun/sun/cloud/rain (sun always first); cloud dims the sun to 70 %, rain to 45 % and lifts the fog blend. **Reduced motion** (setting or class `reduced-motion`): camera snaps, no pops, no CSS transitions, intro swoop skipped. Quality tiers cap device pixel ratio at 1 / 1.5 / 2, drop shadows and rain on `low`, and halve tree count.
+**Motion.** Camera uses an exponential spring (`1 − e^(−7·dt)`), interruptible, with a 6-unit intro swoop; placement/removal is a 0.25 s scale pop; rain is a 600/1600-point particle field that fades in over the weather change. Weather (`main.js › startWeather`) advances every 40 s through a seeded 6-entry order of sun/sun/cloud/rain (sun always first); cloud dims the sun to 70 %, rain to 45 % and lifts the fog blend. **Reduced motion** (setting or class `reduced-motion`): camera snaps, no pops, no CSS transitions, intro swoop skipped. Graphics settings (below) decide shadows, particles and scenery motion.
+
+**Graphics.** Lighting is ACES filmic tone mapping with sRGB output, a hemisphere sky fill and a key sun whose PCF soft-shadow box is fitted to the plot. Optional effects: image-based lighting from a PMREM-filtered `RoomEnvironment` (`scene.environment`; glass, water and lamps reflect most, the hemisphere fill drops to keep exposure), GTAO contact darkening between blocks, bloom limited to lamps and bright glints (threshold 0.95), a colour grade with a gentle S-curve and vignette (no vignette in high contrast), FXAA/SMAA/MSAA. Detailed surfaces add rounded-bevel blocks, procedural grey-scale textures multiplied by the block colour (planks and nails on timber, brick courses on stone, leaf speckle, grass, soil, a lantern frame whose emissive map lights only the panes; off in high contrast), a gradient sky dome with a sun glow, low-poly clouds, a second canopy tier on 14 trees, a stone-rimmed pond, instanced wildflowers and pebbles. Glass and lamps are clearcoated `MeshPhysicalMaterial`. Animated scenery sways tree crowns (harder in cloud and rain), drifts clouds and pulses pond ripples; High and Ultra add drifting pollen motes in sunshine; rain is 600 (Low particles) or 1600 (High) points. All ambient motion stops under the Reduced motion setting or `prefers-reduced-motion`. Settings › **Graphics** offers Quality (Auto — chosen from the WebGL unmasked renderer: SwiftShader/llvmpipe → Low, discrete GPUs and Apple M → High, else Balanced, capped at Balanced on touch/mobile — Low, Balanced, High, Ultra), Render scale 50–200 %, one select per effect — Shadows (off/1024²/2048²/4096²), Ambient occlusion (off/on/high), Bloom, Color grade, Anti-aliasing (off/FXAA/SMAA/MSAA), Reflections, Surface detail (plain/detailed), Particles (off/low/high), Scenery motion (still/animated) — each defaulting to "From preset (…)", Adaptive resolution (averages 90 frames; above 26 ms steps the scale down 0.1 to 60 %, below 14 ms back up 0.05) and Show frame rate (`#fps-meter`), plus a line "GPU · cost summary · W×H px". Choosing a preset clears overrides. Changes apply live and persist in the save document as `settings.gfx` (older `graphicsTier` saves migrate: medium → Balanced). The pixel ratio is min(devicePixelRatio, preset cap 1/1.5/2/2) × preset scale (Ultra 1.25) × render scale × adaptive scale. The EffectComposer (RenderPass → GTAO → bloom → OutputPass → grade → SMAA/FXAA, MSAA via a 4-sample target) runs only when an effect needs it, so Low renders directly exactly like the original low tier; if the chain cannot be built the game renders without it and the panel says so. The resolved preset is exposed as `data-gfx-preset` on `<body>` and the canvas. The panel's strings exist in en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR and it-IT (picked from `navigator.languages`).
 
 **Visual assets the design calls for.** Title key art (a lit settlement on the plot, shipped as `assets/key-art.webp` and reused as `coverart.png`), a warm win illustration and a rainy loss illustration for the results overlay (`assets/results-win.webp`, `assets/results-lose.webp`), the favicon/icon. No imported 3D models: the shape language is deliberately primitive voxels built in `render.js`, so a sculpted hero prop would break it.
 
@@ -307,7 +312,7 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 
 `npm test` (`tests/run-tests.js`, 1538 assertions) verifies: every legality check and rejection id; each scoring component and the total; move-limit, resign, landlock and monotonic tick; serialize/deserialize hash equality and version rejection; 40 seeded sessions of random legal play that replay-verify, reject a tampered score, and undo cleanly; 300 fuzzed malformed commands without throws or NaN; every journey stage, challenge, practice preset and one week of dailies is versioned, has reachable goals, has legal actions at start, and is solved by the greedy hint solver within budget (within its move limit where one exists); the endless ruleset progresses; every lesson has legal actions and a completion event; achievement keys are unique lowercase; save checksum and migration; server trusted-content lookup rejects bad ids.
 
-`npm run test:e2e` verifies the playthrough described in §13 on desktop and mobile with zero page errors.
+`npm test` also runs `tests/gfx.test.mjs` (preset detection, resolve with overrides and scale clamping, preset clears overrides, locale coverage). `npm run test:e2e` verifies the playthrough described in §13 on desktop and mobile with zero console errors or warnings, including Settings › Graphics: Low then High, a Bloom override and the frame-rate readout, persistence across a reload, and Auto resolving to Low on the headless software GPU.
 
 **QA bar (checkable).**
 
@@ -330,13 +335,14 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 | `sfx/*.opus` — 19 original clips (`ui` … `weather-rain`) | Event cues, see §9 | MOSS-SoundEffect v2.0, 100 steps | shipped |
 | `sfx/weather-cloud.opus`, `round-start.opus`, `lesson-complete.opus`, `pause.opus`, `resume.opus` | New event cues, see §9 | MOSS-SoundEffect v2.0, 100 steps | generated in this pass, wired in `audio.js`/`main.js` |
 | `sfx/manifest.txt` | Canonical clip ↔ event binding | authored | shipped |
-| `vendor/three.module.min.js` | Renderer | Three.js (MIT) | shipped |
+| `vendor/three.module.min.js` | Renderer | Three.js r160 (MIT) | shipped |
+| `vendor/three-addons/` | EffectComposer, RenderPass, GTAOPass, UnrealBloomPass, OutputPass, ShaderPass, SMAAPass, FXAA/SMAA/GTAO shaders, RoomEnvironment, RoundedBoxGeometry | three@0.160.1 `examples/jsm` (MIT), unmodified | shipped |
 | 3D models | — | none; all geometry is procedural in `render.js` | not called for |
 | Character animation | — | no humanoid in the game | not applicable |
 
 ## 16. Known limitations
 
-- No localization: all strings are English literals (§10).
+- No localization outside the Graphics panel: other strings are English literals (§10).
 - Without a launch token the player identity is a per-load random guest name attributed to scores and achievements; the local save is not cloud-synced.
 - Leaderboards are global only; no friends filter. The Scores screen exposes only the `global` and today's `daily` boards (journey and challenge boards are submitted but not browsable in the UI).
 - Landlock can only occur when removal is impossible (remove tool disabled, or every column top is rock); with the remove tool on, a full plot always has a legal remove, so score chase effectively ends by resignation rather than sealing.

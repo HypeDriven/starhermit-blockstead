@@ -15,7 +15,9 @@
   var DEFAULT_SETTINGS = {
     music: 0.55, effects: 0.9, ambience: 0.5, voice: 0.8,
     muted: false, captions: false,
-    graphicsTier: 'auto',       // auto | low | medium | high
+    // graphics quality (see js/gfx.js): preset auto|low|balanced|high|ultra,
+    // render_scale 0.5–2, adaptive, show_fps, plus optional per-effect overrides
+    gfx: { preset: 'auto', render_scale: 1, adaptive: true, show_fps: false },
     theme: 'meadow',
     reducedMotion: false,
     highContrast: false,
@@ -52,13 +54,22 @@
     if (!doc || typeof doc !== 'object') return null;
     if (doc.v > SAVE_VERSION) return null; // future format: don't clobber
     doc.v = SAVE_VERSION;
-    doc.settings = Object.assign({}, DEFAULT_SETTINGS, doc.settings || {});
+    var old = doc.settings || {};
+    doc.settings = Object.assign({}, DEFAULT_SETTINGS, old);
+    // pre-gfx saves stored a single quality tier
+    if (!old.gfx || typeof old.gfx !== 'object') {
+      var tierMap = { low: 'low', medium: 'balanced', high: 'high' };
+      doc.settings.gfx = Object.assign({}, DEFAULT_SETTINGS.gfx, { preset: tierMap[old.graphicsTier] || 'auto' });
+    }
+    delete doc.settings.graphicsTier;
     doc.progress = Object.assign(defaultProgress(), doc.progress || {});
     return doc;
   }
 
   function fresh() {
-    return { v: SAVE_VERSION, settings: Object.assign({}, DEFAULT_SETTINGS), progress: defaultProgress() };
+    var settings = Object.assign({}, DEFAULT_SETTINGS);
+    settings.gfx = Object.assign({}, DEFAULT_SETTINGS.gfx);
+    return { v: SAVE_VERSION, settings: settings, progress: defaultProgress() };
   }
 
   var memoryFallback = null; // used when localStorage is unavailable

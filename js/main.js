@@ -5,6 +5,7 @@
  * Only this module issues validated commands into the session layer.
  */
 import { createRenderer } from './render.js';
+import { mountGraphicsPanel } from './gfx-panel.js';
 
 (function () {
   'use strict';
@@ -168,17 +169,11 @@ import { createRenderer } from './render.js';
 
   // ---------- renderer ----------
   let renderer = null, webglOk = true;
-  function qualityTier() {
-    if (settings.graphicsTier !== 'auto') return settings.graphicsTier;
-    const coarse = matchMedia('(pointer:coarse)').matches;
-    const small = Math.min(screen.width, screen.height) < 820;
-    return (coarse || small) ? 'medium' : 'high';
-  }
   function bootRenderer() {
     try {
       renderer = createRenderer({
         host: document.getElementById('scene-host'),
-        quality: qualityTier(),
+        graphics: settings.gfx,
         reducedMotion: settings.reducedMotion,
         onPick: onCellPicked,
         onHover: onCellHover,
@@ -205,7 +200,7 @@ import { createRenderer } from './render.js';
       renderer.setReducedMotion(settings.reducedMotion);
       const themeId = (round.state && round.state.cfg.theme) || settings.theme;
       renderer.setPalette(themeById(themeId).palette, settings.highContrast || settings.colorPalette === 'high-visibility');
-      renderer.setQuality(qualityTier());
+      renderer.setGraphics(settings.gfx);
     }
     Audio.applySettings(settings);
     Audio.setCaptions(!!settings.captions, UI.caption);
@@ -905,6 +900,7 @@ import { createRenderer } from './render.js';
   function showTitle() {
     round.phase = 'title';
     UI.showScreen('title', true);
+    if (renderer) renderer.showShowcase(); // slowly turning sample homestead behind the menu
     const snap = loadRoundSnapshot();
     const playBtn = document.getElementById('btn-play');
     playBtn.textContent = snap ? 'Resume round' : 'Play';
@@ -1108,11 +1104,17 @@ import { createRenderer } from './render.js';
       { key: 'muted', label: 'Mute all', type: 'checkbox' },
       { key: 'captions', label: 'Captions for sounds', type: 'checkbox' }
     ] },
-    { title: 'Graphics', items: [
-      { key: 'graphicsTier', label: 'Quality tier', type: 'select', options: [
-        { value: 'auto', label: 'Auto' }, { value: 'low', label: 'Low' },
-        { value: 'medium', label: 'Medium' }, { value: 'high', label: 'High' }
-      ] },
+    { title: 'Graphics', id: 'settings-graphics', items: [
+      { type: 'custom', render: (box) => mountGraphicsPanel(box, {
+        get: () => settings.gfx,
+        set: (next) => {
+          settings.gfx = next;
+          persist();
+          if (renderer) renderer.setGraphics(settings.gfx);
+          funnel('settings-gfx');
+        },
+        info: () => renderer ? renderer.graphicsInfo() : null
+      }) },
       { key: 'reducedMotion', label: 'Reduced motion', type: 'checkbox' },
       { key: 'highContrast', label: 'High contrast', type: 'checkbox' },
       { key: 'colorPalette', label: 'Color palette', type: 'select', options: [
@@ -1133,7 +1135,7 @@ import { createRenderer } from './render.js';
     persist();
     applyVisualSettings();
     funnel('settings-' + key);
-    if (key === 'boardMirror' || key === 'graphicsTier') refreshUI();
+    if (key === 'boardMirror') refreshUI();
   }
 
   // ---------- audio unlock on first gesture ----------

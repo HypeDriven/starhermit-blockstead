@@ -80,7 +80,7 @@ async function runPass(browser, baseURL, vpName, contextOpts) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() !== 'error' || browserNoise.test(m.text())) return;
+    if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
     // The game probes the optional host API at boot; offline it 404s and the
     // game falls back to its documented local-guest path. Benign here.
     const url = m.location()?.url || '';
@@ -122,6 +122,44 @@ async function runPass(browser, baseURL, vpName, contextOpts) {
       }));
       if (!applied.mirror || !applied.reduced) throw new Error('settings not applied: ' + JSON.stringify(applied));
       await page.screenshot({ path: SHOT('settings', vpName) });
+      await page.click('.screen[data-name="settings"] button[data-back]');
+      await page.waitForFunction(() => document.getElementById('app').getAttribute('data-screen') === 'title');
+    });
+
+    await step('graphics: presets, override, persists across reload', async () => {
+      const gfxPreset = () => page.evaluate(() => document.body.getAttribute('data-gfx-preset'));
+      const savedGfx = () => page.evaluate(() =>
+        JSON.parse(JSON.parse(localStorage.getItem('blockstead.save.v1')).payload).settings.gfx);
+      await page.click('#btn-settings');
+      await page.waitForFunction(() => document.getElementById('app').getAttribute('data-screen') === 'settings');
+      await page.locator('#settings-graphics #gfx-preset').waitFor();
+      // headless = software GPU, so Auto resolves to Low
+      const autoLabel = await page.locator('#gfx-preset option[value="auto"]').textContent();
+      if (!/low/i.test(autoLabel)) throw new Error('auto label does not show detected tier: ' + autoLabel);
+      await page.selectOption('#gfx-preset', 'low');
+      if ((await gfxPreset()) !== 'low') throw new Error('Low preset not applied');
+      await page.selectOption('#gfx-preset', 'high');
+      if ((await gfxPreset()) !== 'high') throw new Error('High preset not applied');
+      await page.waitForFunction(() => /2048² shadows/.test(document.getElementById('gfx-summary').textContent));
+      await page.selectOption('#gfx-bloom', 'off');
+      await page.locator('#gfx-fps').check();
+      await page.locator('#fps-meter').waitFor();
+      let g = await savedGfx();
+      if (g.preset !== 'high' || g.bloom !== 'off' || !g.show_fps) throw new Error('gfx not saved: ' + JSON.stringify(g));
+      await page.screenshot({ path: SHOT('graphics', vpName) });
+      await page.reload({ waitUntil: 'load' });
+      await page.waitForFunction(() => document.getElementById('app').getAttribute('data-screen') === 'title');
+      if ((await gfxPreset()) !== 'high') throw new Error('preset lost on reload');
+      await page.click('#btn-settings');
+      await page.locator('#gfx-preset').waitFor();
+      if ((await page.inputValue('#gfx-preset')) !== 'high') throw new Error('preset select not restored');
+      if ((await page.inputValue('#gfx-bloom')) !== 'off') throw new Error('override not restored');
+      // choosing a preset clears overrides; back to Auto keeps the rest of the run fast
+      await page.selectOption('#gfx-preset', 'auto');
+      await page.locator('#gfx-fps').uncheck();
+      g = await savedGfx();
+      if (g.preset !== 'auto' || 'bloom' in g) throw new Error('preset did not clear overrides: ' + JSON.stringify(g));
+      if ((await gfxPreset()) !== 'low') throw new Error('Auto did not resolve to Low on a software GPU');
       await page.click('.screen[data-name="settings"] button[data-back]');
       await page.waitForFunction(() => document.getElementById('app').getAttribute('data-screen') === 'title');
     });
@@ -233,7 +271,9 @@ let browser = null;
 try {
   browser = await chromium.launch({
     executablePath: '/usr/bin/google-chrome',
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader']
+    args: ['--no-sandbox', '--enable-unsafe-swiftshader'],
+    // Headless needs no display; a busy WSLg Wayland socket can otherwise stall the GPU process.
+    env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'WAYLAND_DISPLAY' && k !== 'DISPLAY'))
   });
   console.log(`serving ${ROOT} at ${baseURL}`);
   await runPass(browser, baseURL, 'desktop', { viewport: { width: 1280, height: 800 } });

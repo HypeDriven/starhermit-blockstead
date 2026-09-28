@@ -264,3 +264,28 @@ body.reduced-motion * { transition: none !important; animation: none !important;
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
 }
+
+/* ---------- Graphics settings panel ---------- */
+#settings-form .gfx-panel { display: flex; flex-direction: column; }
+#settings-form .gfx-row { flex-wrap: wrap; }
+.gfx-label { flex: 1 1 10em; min-width: 0; }
+.gfx-control { display: inline-flex; align-items: center; gap: 8px; flex: 0 1 auto; max-width: 100%; }
+.gfx-control select { max-width: min(62vw, 300px); }
+#settings-form .gfx-control input[type="range"] { width: min(42vw, 200px); }
+.gfx-out { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.gfx-summary { margin: 4px 0 10px; overflow-wrap: anywhere; }
+.gfx-note { margin: 0 0 10px; color: #ffd27a; }
+#fps-meter {
+  position: fixed; z-index: 30; right: max(env(safe-area-inset-right), 8px);
+  bottom: max(env(safe-area-inset-bottom), 8px);
+  background: #000a; color: #fff; font: 600 12px/1.2 ui-monospace, monospace;
+  padding: 3px 7px; border-radius: 6px; pointer-events: none;
+}
+
+/* Title card sits on a soft scrim so the animated showcase valley never costs text contrast. */
+.title-card {
+  background: rgba(10,18,28,.5); backdrop-filter: blur(4px);
+  border-radius: 20px; padding: clamp(12px, 2.5vw, 22px);
+}
+.title-card .tagline { text-shadow: 0 1px 6px #000a; }
+body.high-contrast .title-card { background: rgba(0,0,0,.88); }

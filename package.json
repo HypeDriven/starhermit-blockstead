@@ -2,7 +2,7 @@
   "name": "blockstead",
   "private": true,
   "scripts": {
-    "test": "node tests/run-tests.js",
+    "test": "node tests/run-tests.js && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/gfx.test.mjs",
     "test:e2e": "node tests/e2e.mjs"
   },
   "devDependencies": {
