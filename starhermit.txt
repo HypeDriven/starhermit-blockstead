@@ -1,4 +1,5 @@
 name=Blockstead
+description=Gather timber and stone, build a voxel settlement, and complete construction goals before your moves run out.
 launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=server.js
