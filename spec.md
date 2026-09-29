@@ -360,3 +360,7 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 - Friends-filtered leaderboards and a shareable seed link for dailies and challenges.
 - Journey and challenge board tabs on the Scores screen.
 - Keyboard camera orbit (e.g. `Q`/`E`, `+`/`−`).
+
+## Browser interference
+
+`browser-guard.js` (loaded from `index.html`) suppresses browser UI that gets in the way of play: the right-click context menu, the iOS long-press callout, copy / cut / paste, and page text selection. Text fields (inputs, textareas, selects, contenteditable) keep normal selection, context menu and clipboard behaviour.
