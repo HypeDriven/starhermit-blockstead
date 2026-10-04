@@ -60,7 +60,7 @@ function startServer() {
     if (p === '/') p = '/index.html';
     const file = path.normalize(path.join(ROOT, p));
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
-      res.writeHead(404).end('not found'); // includes /api/* → game takes its offline path
+      res.writeHead(404).end('not found');
       return;
     }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
@@ -81,15 +81,16 @@ async function runPass(browser, baseURL, vpName, contextOpts) {
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
-    // The game probes the optional host API at boot; offline it 404s and the
-    // game falls back to its documented local-guest path. Benign here.
-    const url = m.location()?.url || '';
-    if (/Failed to load resource/.test(m.text()) && new URL(url).pathname.startsWith('/api/')) return;
     errors.push(`console: ${m.text()}`);
   });
   page.on('response', (r) => {
-    if (r.status() >= 400 && !new URL(r.url()).pathname.startsWith('/api/')) {
-      errors.push(`http ${r.status()}: ${r.url()}`);
+    if (r.status() >= 400) errors.push(`http ${r.status()}: ${r.url()}`);
+  });
+  // Standalone (no launch token): no same-origin /api or /ws request at all.
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.origin === baseURL.replace(/\/$/, '') && /^\/(api|ws)(\/|$)/.test(u.pathname)) {
+      errors.push(`own-server request while standalone: ${u.pathname}`);
     }
   });
 

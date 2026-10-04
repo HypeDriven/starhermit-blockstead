@@ -5,7 +5,7 @@
  * Only this module issues validated commands into the session layer.
  */
 import { createRenderer } from './render.js';
-import { mountGraphicsPanel } from './gfx-panel.js';
+import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
 
 (function () {
   'use strict';
@@ -17,6 +17,8 @@ import { mountGraphicsPanel } from './gfx-panel.js';
   const UI = window.BSUI;
   const Audio = window.BSAudio;
   const RNG = window.BSRNG;
+  const P = window.BSPlatform; // StarHermit adapter (js/platform.js over starhermit-sdk.js)
+  const ACCOUNT = accountStrings(pickLocale(navigator.languages || [navigator.language]));
 
   // ---------- persistent doc ----------
   let doc = Store.load();
@@ -34,137 +36,69 @@ import { mountGraphicsPanel } from './gfx-panel.js';
   const sessionId = 's' + Math.random().toString(36).slice(2, 10);
   let playerName = 'Guest-' + sessionId.slice(1, 5); // offline fallback label
 
-  // ---------- platform: launch token, identity, authenticated /api ----------
-  // The platform opens the game as index.html#game_token=<jwt> (optional
-  // &session_id=), stripped after the read. The JWT carries sub = account id
-  // and game_scope = this game's slug — never hard-coded. Query forms are
-  // local-dev fallbacks. Memory only, never persisted.
-  let launchToken = null, platformUserId = null, platformSlug = null;
-  let profileName = null;            // signed-in player's nickname
-  const profileNames = {};           // userId -> Promise<string> (cached)
-  let refreshTimer = null, refreshRetryTimer = null;
+  // ---------- platform: StarHermit identity + authenticated /api ----------
+  // Launch token, renewal, nicknames, cloud save, settings KV and bindings
+  // live in BSPlatform; nothing is requested without a token.
+  let signedOutNotice = false;
+  const profileFor = P.profileFor;
+  function displayName() { return (P.profile && P.profile.displayName) || playerName; }
 
-  function decodeJwt(t) {
-    try {
-      const seg = String(t).split('.')[1];
-      if (!seg) return null;
-      let b64 = seg.replace(/-/g, '+').replace(/_/g, '/');
-      b64 += '='.repeat((4 - (b64.length % 4)) % 4);
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return JSON.parse(new TextDecoder().decode(bytes));
-    } catch (e) { return null; }
+  function accountLine() {
+    if (!P.hosted) return signedOutNotice ? ACCOUNT.signedOut : ACCOUNT.offline;
+    const name = P.profile ? P.profile.displayName : '…';
+    const sync = P.sync === 'synced' ? ACCOUNT.synced : P.sync === 'saving' ? ACCOUNT.saving : ACCOUNT.syncOff;
+    return ACCOUNT.playingAs.replace('{name}', name) + ' · ' + sync;
   }
-
-  function readLaunchToken() {
-    try {
-      const h = new URLSearchParams(String(location.hash || '').replace(/^#/, ''));
-      const t = h.get('game_token');
-      if (t) {
-        h.delete('game_token');
-        h.delete('session_id');
-        const rest = h.toString();
-        history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : ''));
-        return t;
-      }
-      const q = new URLSearchParams(location.search);
-      return q.get('game_token') || q.get('token') || q.get('launch_token') || null;
-    } catch (e) { return null; }
+  function refreshAccount() {
+    const line = document.getElementById('account-line');
+    if (line) line.textContent = accountLine();
+    const si = document.getElementById('btn-sign-in'), inv = document.getElementById('btn-invite');
+    si.textContent = ACCOUNT.signIn; si.hidden = !P.canSignIn();
+    inv.textContent = ACCOUNT.invite; inv.hidden = !P.hosted;
+  }
+  const showToast = (text) => UI.toast(text);
+  async function copyInvite() {
+    const link = P.inviteLink();
+    if (!link) return;
+    try { await navigator.clipboard.writeText(link); showToast(ACCOUNT.inviteCopied); }
+    catch (e) { showToast(ACCOUNT.inviteFailed + ' ' + link); }
   }
 
-  function apiHeaders(extra) {
-    const h = extra || {};
-    if (launchToken) h['Authorization'] = 'Bearer ' + launchToken;
-    return h;
+  // Keyboard actions by KeyboardEvent.code (control.* in starhermit.txt);
+  // a signed-in player's StarHermit overrides replace these at boot.
+  const KEY_DEFAULTS = {
+    pause: ['KeyP'], back: ['Escape'], prev: ['ArrowLeft', 'ArrowUp'], next: ['ArrowRight', 'ArrowDown'],
+    place: ['Enter', 'Space', 'NumpadEnter'], gather: ['KeyG'], remove: ['KeyR'], undo: ['KeyU'], hint: ['KeyH'],
+    camera: ['KeyC'], topDown: ['KeyT'], skip: ['KeyS'],
+    block1: ['Digit1', 'Numpad1'], block2: ['Digit2', 'Numpad2'], block3: ['Digit3', 'Numpad3'],
+    block4: ['Digit4', 'Numpad4'], block5: ['Digit5', 'Numpad5'],
+  };
+  let keyBindings = JSON.parse(JSON.stringify(KEY_DEFAULTS));
+  function actionForCode(code) {
+    for (const a in keyBindings) if (keyBindings[a].includes(code)) return a;
+    return null;
+  }
+  function keyName(action) {
+    const names = { Escape: 'Esc', Space: 'Space', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' };
+    return (keyBindings[action] || []).map(c => names[c] || c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Num ')).join('/');
   }
 
-  function initPlatform() {
-    launchToken = readLaunchToken();
-    if (launchToken) {
-      const claims = decodeJwt(launchToken);
-      if (!claims) launchToken = null; // malformed: standalone
-      else {
-        if (typeof claims.sub === 'string' && claims.sub) platformUserId = claims.sub;
-        if (typeof claims.game_scope === 'string' && claims.game_scope) platformSlug = claims.game_scope;
-        if (!platformUserId || !platformSlug) launchToken = null;
-      }
-    }
-    if (launchToken) {
-      scheduleTokenRefresh();
-      fetchOwnProfile();
-    }
-  }
-
-  // The token lives 60 min; scoped tokens may re-mint via the game's
-  // launch-token route. Retry a failed re-mint after ~60 s.
-  function scheduleTokenRefresh() {
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(refreshLaunchToken, 45 * 60 * 1000);
-  }
-  function refreshLaunchToken() {
-    if (!launchToken || !platformSlug) return Promise.resolve(false);
-    return fetch('/api/v1/games/' + encodeURIComponent(platformSlug) + '/launch-token', {
-      method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }), body: '{}'
-    }).then(r => r.json().catch(() => null)).then(j => {
-      if (j && typeof j.token === 'string' && j.token) {
-        launchToken = j.token;
-        const claims = decodeJwt(launchToken);
-        if (claims && claims.sub) platformUserId = claims.sub;
-        if (claims && claims.game_scope) platformSlug = claims.game_scope;
-        return true;
-      }
-      retryTokenRefresh();
-      return false;
-    }).catch(() => { retryTokenRefresh(); return false; });
-  }
-  function retryTokenRefresh() {
-    if (refreshRetryTimer || !launchToken) return;
-    refreshRetryTimer = setTimeout(() => {
-      refreshRetryTimer = null;
-      refreshLaunchToken();
-    }, 60000);
-  }
-
-  // Display names: the profile nickname is the only profile read a
-  // game-scoped token may make (never /api/v1/me, never usernames).
-  // Off-platform the call fails and "Player <id8>" is used. Cached per id.
-  function profileFor(userId) {
-    if (!userId || typeof userId !== 'string') return Promise.resolve('player');
-    if (profileNames[userId]) return profileNames[userId];
-    const p = fetch('/api/v1/users/' + encodeURIComponent(userId) + '/profile', { headers: apiHeaders() })
-      .then(r => (r.ok ? r.json() : null))
-      .then(j => (j && typeof j.nickname === 'string' && j.nickname ? j.nickname : null))
-      .then(n => n || ('Player ' + userId.slice(0, 8)))
-      .catch(() => 'Player ' + userId.slice(0, 8));
-    profileNames[userId] = p;
-    return p;
-  }
-  function fetchOwnProfile() {
-    if (!platformUserId) return Promise.resolve(null);
-    return profileFor(platformUserId).then(n => {
-      profileName = n.slice(0, 40);
-      return profileName;
-    });
-  }
-  function displayName() { return profileName || playerName; }
-
-  // ---------- platform time (round-trip adjusted, offline fallback) ----------
-  let timeOffset = 0, hosted = false;
+  // ---------- platform time (signed in only; standalone uses the local clock) ----------
+  let timeOffset = 0;
   function nowMs() { return Date.now() + timeOffset; }
   async function syncTime() {
+    if (!P.hosted) return; // no own-server request without a launch token
     try {
       const t0 = Date.now();
-      const r = await fetch('/api/v1/time', { cache: 'no-store', headers: apiHeaders() });
+      const r = await fetch('/api/v1/time', { cache: 'no-store', headers: { 'Authorization': 'Bearer ' + P.token } });
       const t1 = Date.now();
       if (!r.ok) return;
       const j = await r.json();
       // Platform contract is { serverTime }; the local dev server answers { now }.
       const serverNow = Number(j && (j.serverTime != null ? j.serverTime : j.now));
-      if (!Number.isFinite(serverNow) || serverNow <= 0) { hosted = false; return; }
+      if (!Number.isFinite(serverNow) || serverNow <= 0) return;
       timeOffset = serverNow - Math.round((t0 + t1) / 2);
-      hosted = true;
-    } catch (e) { hosted = false; }
+    } catch (e) { /* keep the local clock */ }
   }
 
   // ---------- renderer ----------
@@ -469,7 +403,6 @@ import { mountGraphicsPanel } from './gfx-panel.js';
     Object.keys(progress.achievements).filter(k => !before.has(k)).forEach(k => {
       const a = Content.ACHIEVEMENTS.find(x => x.key === k);
       if (a) achievements.push(a);
-      deliverAchievement(k);
     });
 
     funnel('round-end-' + (s.terminal.won ? 'win' : 'lose'));
@@ -486,14 +419,6 @@ import { mountGraphicsPanel } from './gfx-panel.js';
       UI.announce('Achievement unlocked');
     }
   }
-  function deliverAchievement(key) {
-    if (!hosted) return;
-    fetch('/api/v1/achievement', {
-      method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ key, player: platformUserId || playerName })
-    }).catch(() => {});
-  }
-
   function showResults(achievements) {
     const s = round.state;
     const won = s.terminal && s.terminal.won;
@@ -549,35 +474,14 @@ import { mountGraphicsPanel } from './gfx-panel.js';
     if (!board) return;
     const envelope = Session.envelope(round.session);
     const entry = {
-      board, name: playerName, score: envelope.score.total,
+      board, name: playerName, player: P.userId || undefined, score: envelope.score.total,
       durationMs: envelope.elapsedMs, invalid: envelope.invalid,
       sessionId, at: Date.now(), ruleset: envelope.contentId, seed: envelope.seed
     };
-    // local copy always (offline-capable comparison)
+    // boards are kept on this device
     const boards = Store.loadBoards();
     boards.entries.push(entry);
     Store.saveBoards(boards);
-    if (hosted) {
-      fetch('/api/v1/score', {
-        method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          board, name: displayName(), player: platformUserId || null,
-          sessionId, envelope, assists: currentAssists()
-        })
-      }).then(r => r.ok ? r.json() : { error: 'unavailable' }).then(j => {
-        if (j && j.accepted) UI.toast('Score validated and posted');
-        else if (j && j.error === 'unavailable') UI.toast('Online board unavailable — result saved on this device');
-        else if (j && j.error) UI.toast('Score rejected: ' + (j.reason || j.error));
-      }).catch(() => { UI.toast('Online board unavailable — result saved on this device'); });
-    }
-  }
-
-  function currentAssists() {
-    return {
-      undo: !!(round.state && round.state.cfg.mechanics && round.state.cfg.mechanics.undo !== false),
-      hint: !!(round.state && round.state.cfg.mechanics && round.state.cfg.mechanics.hint !== false),
-      confirmMoves: !!settings.confirmMoves
-    };
   }
 
   // ---------- round snapshot (last safe local save) ----------
@@ -705,14 +609,14 @@ import { mountGraphicsPanel } from './gfx-panel.js';
 
   document.addEventListener('keydown', (ev) => {
     if (ev.target && /INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) return;
-    const k = ev.key.toLowerCase();
+    const k = actionForCode(ev.code);
     const inRound = round.phase === 'active';
-    if (k === 'p' || (k === 'escape' && inRound)) { ev.preventDefault(); togglePause(); return; }
-    if (k === 'escape') { UI.back(); return; }
+    if (k === 'pause' || (k === 'back' && inRound)) { ev.preventDefault(); togglePause(); return; }
+    if (k === 'back') { UI.back(); return; }
     if (!inRound) return;
-    if (k === 'arrowleft' || k === 'arrowup') { ev.preventDefault(); moveFocus(-1); }
-    else if (k === 'arrowright' || k === 'arrowdown') { ev.preventDefault(); moveFocus(1); }
-    else if (k === 'enter' || k === ' ') {
+    if (k === 'prev') { ev.preventDefault(); moveFocus(-1); }
+    else if (k === 'next') { ev.preventDefault(); moveFocus(1); }
+    else if (k === 'place') {
       ev.preventDefault();
       if (round.focusIndex >= 0 && round.focusTargets[round.focusIndex]) {
         const t = round.focusTargets[round.focusIndex];
@@ -720,15 +624,15 @@ import { mountGraphicsPanel } from './gfx-panel.js';
         rebuildFocusTargets();
       }
     }
-    else if (k === 'g') execute({ type: 'gather' });
-    else if (k === 'r') toggleRemove();
-    else if (k === 'u') doUndo();
-    else if (k === 'h') doHint();
-    else if (k === 'c') { if (renderer) renderer.resetCamera(); }
-    else if (k === 't') { if (renderer) renderer.topDownCamera(); }
-    else if (k === 's') { if (renderer) renderer.skipAnimations(); UI.message('Animations skipped'); }
-    else if (k >= '1' && k <= '5') {
-      const i = +k - 1;
+    else if (k === 'gather') execute({ type: 'gather' });
+    else if (k === 'remove') toggleRemove();
+    else if (k === 'undo') doUndo();
+    else if (k === 'hint') doHint();
+    else if (k === 'camera') { if (renderer) renderer.resetCamera(); }
+    else if (k === 'topDown') { if (renderer) renderer.topDownCamera(); }
+    else if (k === 'skip') { if (renderer) renderer.skipAnimations(); UI.message('Animations skipped'); }
+    else if (k && /^block[1-5]$/.test(k)) {
+      const i = +k.slice(5) - 1;
       const blocks = round.state.cfg.blocks;
       if (blocks[i]) selectBlock(blocks[i]);
     }
@@ -1020,8 +924,7 @@ import { mountGraphicsPanel } from './gfx-panel.js';
     }));
     UI.renderProfile({
       name: displayName(),
-      subtitle: hosted
-        ? (platformUserId ? 'Connected as ' + displayName() + ' — scores are validated.' : 'Connected to host — scores are validated.')
+      subtitle: P.userId ? 'Signed in as ' + displayName() + ' — scores are kept on this device.'
         : 'Local guest profile — fully playable offline.',
       stats: [
         'Rounds played: ' + progress.stats.rounds,
@@ -1048,25 +951,14 @@ import { mountGraphicsPanel } from './gfx-panel.js';
       { id: 'global', label: 'Endless (global)' },
       { id: 'daily:' + date, label: 'Today’s daily' }
     ];
-    let entries = [], note = '';
-    if (hosted) {
-      try {
-        const r = await fetch('/api/v1/leaderboard?board=' + encodeURIComponent(lbActive), { headers: apiHeaders() });
-        const j = await r.json();
-        entries = j.entries || [];
-        note = 'Validated by server replay. Ties: fewer invalid actions, then faster time.';
-      } catch (e) { hosted = false; }
-    }
-    if (!hosted) {
-      entries = Store.sortEntries(Store.loadBoards().entries.filter(e => e.board === lbActive));
-      note = 'Offline — showing locally recorded scores (casual board).';
-    }
+    let entries = Store.sortEntries(Store.loadBoards().entries.filter(e => e.board === lbActive));
+    const note = 'Scores recorded on this device. Ties: fewer invalid actions, then faster time.';
     // Resolve account ids to profile nicknames; mark the signed-in row.
     entries = await Promise.all(entries.map(async e => {
       if (!e.player) return e;
       const name = await profileFor(e.player);
       return Object.assign({}, e, {
-        name: e.player === platformUserId ? 'You (' + name + ')' : name
+        name: e.player === P.userId ? 'You (' + name + ')' : name
       });
     }));
     UI.renderLeaderboard({
@@ -1082,14 +974,14 @@ import { mountGraphicsPanel } from './gfx-panel.js';
   function showHelp() {
     UI.renderHelp([
       { title: 'Goal', text: 'Gather resources and place blocks to complete every build goal. Rocks are immovable terrain; build around or on them.', keys: null },
-      { title: 'Gather', text: 'Collect timber, stone and more from the valley. Gathering spends a move when the ruleset has a move limit.', keys: 'G or the ⛏ button' },
-      { title: 'Place', text: 'Select a block in the tray, then choose a glowing tile. Blocks stack into columns.', keys: '1–5 select · click/tap or Enter places' },
+      { title: 'Gather', text: 'Collect timber, stone and more from the valley. Gathering spends a move when the ruleset has a move limit.', keys: keyName('gather') + ' or the ⛏ button' },
+      { title: 'Place', text: 'Select a block in the tray, then choose a glowing tile. Blocks stack into columns.', keys: keyName('block1') + '–' + keyName('block5') + ' select · click/tap or ' + keyName('place') + ' places' },
       { title: 'Glass needs support', text: 'Glass, lamps and plants cannot rest on bare soil — they need a solid block beneath them.' },
       { title: 'Toppers', text: 'Lamps and plants crown a stack: nothing can be built above them.' },
-      { title: 'Remove & undo', text: 'Remove takes back the top block of a column for a small point penalty. Undo rewinds your last action where the ruleset allows it.', keys: 'R remove tool · U undo' },
-      { title: 'Hints', text: 'Hints use the same legal-action rules as play — they never cheat.', keys: 'H' },
-      { title: 'Camera', text: 'Drag to orbit, scroll to zoom.', keys: 'C resets the view' },
-      { title: 'Pause', text: 'Backgrounding the tab pauses solo play automatically.', keys: 'P or Esc' }
+      { title: 'Remove & undo', text: 'Remove takes back the top block of a column for a small point penalty. Undo rewinds your last action where the ruleset allows it.', keys: keyName('remove') + ' remove tool · ' + keyName('undo') + ' undo' },
+      { title: 'Hints', text: 'Hints use the same legal-action rules as play — they never cheat.', keys: keyName('hint') },
+      { title: 'Camera', text: 'Drag to orbit, scroll to zoom.', keys: keyName('camera') + ' resets the view · ' + keyName('topDown') + ' top-down' },
+      { title: 'Pause', text: 'Backgrounding the tab pauses solo play automatically.', keys: keyName('pause') + ' or ' + keyName('back') }
     ]);
     UI.showScreen('help');
   }
@@ -1257,13 +1149,33 @@ import { mountGraphicsPanel } from './gfx-panel.js';
   async function boot() {
     document.getElementById('app').setAttribute('data-screen', 'boot');
     bootRenderer();
-    initPlatform();
+    document.getElementById('btn-sign-in').addEventListener('click', () => P.signIn());
+    document.getElementById('btn-invite').addEventListener('click', copyInvite);
+    refreshAccount();
     await syncTime();
     applyVisualSettings();
     showTitle();
     updateDailyCountdown();
     round.phase = 'title';
     funnel('boot');
+    // StarHermit: remote save wins over the local copy and platform settings
+    // over saved preferences; localStorage stays the offline cache.
+    const remoteRaw = await P.init({
+      onProfile: refreshAccount,
+      onSync: refreshAccount,
+      onAuth: (a) => { if (!a.signedIn) signedOutNotice = true; refreshAccount(); }
+    }).catch(() => null);
+    refreshAccount();
+    if (!P.hosted) return;
+    const remote = remoteRaw ? Store.loadRaw(remoteRaw) : null;
+    if (remote) { doc = remote; settings = doc.settings; progress = doc.progress; }
+    const ps = P.platformSettings;
+    if (ps) Object.keys(Store.DEFAULT_SETTINGS).forEach(k => { if (k in ps) settings[k] = ps[k]; });
+    progress.stats.funnel = progress.stats.funnel || {};
+    persist();
+    applyVisualSettings();
+    if (round.phase === 'title') showTitle();
+    keyBindings = await P.loadBindings(KEY_DEFAULTS);
   }
 
   boot();

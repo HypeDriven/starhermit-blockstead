@@ -83,6 +83,11 @@
           <button id="btn-settings" class="btn ghost">Settings</button>
           <button id="btn-leaderboard" class="btn ghost">Scores</button>
         </div>
+        <div class="title-tertiary">
+          <button id="btn-invite" class="btn ghost" hidden>Invite a friend</button>
+          <button id="btn-sign-in" class="btn ghost" hidden>Sign in with StarHermit</button>
+        </div>
+        <p id="account-line" class="mini" aria-live="polite"></p>
       </div>
     </section>
 
@@ -197,6 +202,8 @@
   <div id="caption" class="hidden" aria-hidden="true"></div>
 </div>
 
+<script src="starhermit-sdk.js"></script>
+<script src="js/platform.js"></script>
 <script src="js/rng.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/content.js"></script>

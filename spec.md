@@ -9,7 +9,7 @@ Present-tense description of the shipped game. Every statement below is true of 
 | | |
 |---|---|
 | Genre | Solo construction puzzle / relaxed builder with ranked seeds |
-| Players | 1; asynchronous score comparison on validated leaderboards |
+| Players | 1; scores compared on device-local leaderboards |
 | Session | 2–4 min per journey stage, 5–10 min for a daily or challenge, open-ended in score chase |
 | Platforms | Desktop and mobile browsers (portrait and landscape); keyboard, mouse, touch, basic gamepad |
 | Rendering | Three.js r160 (`vendor/three.module.min.js`, addons from the same revision in `vendor/three-addons/`, resolved through an import map) WebGL scene with post-processing and quality presets, plus a full semantic-HTML mirror; playable with WebGL unavailable |
@@ -49,7 +49,7 @@ Blockstead is about the quiet satisfaction of a tidy stack. The valley is warm, 
 
 1. **Every block is a decision, not a click.** Timber and stone are scarce, glass needs a footing, lamps and plants end a column for good. Rules in: stock caps, support rules, toppers, immovable rocks, a remove penalty. Rules out: free-form painting, infinite inventory, cosmetic-only blocks.
 2. **Gathering costs turns.** Every gather is a move; move-limited rulesets make "go get more" a real trade-off, and par rewards restraint. Rules in: `moves` counting every command, par bonuses, move limits. Rules out: passive income, timers.
-3. **Seeds are honest.** Rock layouts, gather yields and endless waves come from one seed; the same seed always gives the same valley, and the server replays your log before it believes your score. Rules in: FNV-hashed dailies, envelope verification, deterministic AV pitch variants. Rules out: hidden luck, client-trusted totals.
+3. **Seeds are honest.** Rock layouts, gather yields and endless waves come from one seed; the same seed always gives the same valley, and the replay envelope lets a host replay your log before it believes your score. Rules in: FNV-hashed dailies, envelope verification, deterministic AV pitch variants. Rules out: hidden luck, client-trusted totals.
 4. **The plot is the hero.** The camera frames the plot, the HUD stays at the edges, and every reachable column is marked before you commit. Rules in: green target discs, a ghost block with a red/green verdict, a text board that mirrors the 3D plot cell for cell. Rules out: menus over the plot during play, effects that hide legal targets.
 5. **Finishable in a lunch break.** Stages are 4×4 to 6×6 with 1–4 goals; the whole journey is 40 stages with six mastery checkpoints. Rules out: grind, energy, unlock walls beyond stars.
 
@@ -193,7 +193,7 @@ On wave `w` (starting at 1): a count goal `2 + w` of a random placeable type; th
 | Settings | Audio (4 sliders, mute, captions), Graphics (tier, reduced motion, high contrast, palette), Controls & access (larger text, left-handed, haptics, text board, confirm moves) |
 | Help | Nine rule cards with key bindings |
 | Profile | Guest name, connection note, 8 stats, achievement list, theme picker, Erase local progress |
-| Scores | Tabs Endless (global) / Today's daily; validated table when hosted, local table offline |
+| Scores | Tabs Endless (global) / Today's daily; device-local table |
 
 **Layouts (`css/style.css`).** ≥1024 px: goals rail top-left (≤300 px), actions column top-right, palette bottom-centre. 640–1023 px: goals top-right (≤260 px, scrolls at 40 vh), actions bottom-right column. ≤639 px portrait: compact top bar, goals as a wrapped chip row under it (≤22 vh), palette above the actions tray at the bottom, 56 px icon buttons. Landscape ≤540 px tall: goals right rail, palette bottom-left, actions bottom-right, 48 px buttons. All fixed elements use `env(safe-area-inset-*)`. Left-handed mirrors the trays. Panels cap at `min(96vw, 680px)` (`wide` 900 px) and scroll inside `min(88vh, 780px)`. Key art caps at 34 vh (22 vh under 560 px tall); results art caps at 18 vh (12 vh on phones) and is hidden under 640 px tall so the Next/Retry/Menu row is never pushed off-screen.
 
@@ -288,31 +288,39 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 **Used**
 
 - `starhermit.txt`: `name`, `launch=index.html`, `owner`, `server=server.js`, `cover=coverart.png`.
-- Server script `server.js`: `GET /api/v1/time` (client computes a round-trip-adjusted offset for the daily countdown and date), `GET /api/v1/daily`, `GET /api/v1/leaderboard?board=` (top 50, tie order as §4), `POST /api/v1/score` (envelope replayed with `Session.verify` against trusted content only; duplicate envelopes idempotent; 5000-entry cap), `POST /api/v1/achievement` (idempotent per player key). Per-IP token bucket (30 tokens, +1 per 2 s, score costs 5), 64 KB body limit, structured `{error}` responses that the client shows as toasts.
+- Server script `server.js`: `GET /api/v1/time` (the only route the client calls, and only when signed in; it computes a round-trip-adjusted offset for the daily countdown and date). The rest are kept for the server tests but not called by the client: `GET /api/v1/daily`, `GET /api/v1/leaderboard?board=` (top 50, tie order as §4), `POST /api/v1/score` (envelope replayed with `Session.verify` against trusted content only; duplicate envelopes idempotent; 5000-entry cap), `POST /api/v1/achievement` (idempotent per player key). Per-IP token bucket (30 tokens, +1 per 2 s, score costs 5), 64 KB body limit, structured `{error}` responses.
 - Boards: `global` (score chase), `daily:<date>`, `journey:<id>`, `challenge:<id>`; practice and learn are unranked.
-- Offline behaviour: when `/api/v1/time` fails the client marks itself unhosted, keeps a local leaderboard cache (`blockstead.leaderboards.v1`) and labels boards "casual".
-- Launch token (`main.js#initPlatform`): read from the URL fragment `#game_token=<jwt>` (optional `&session_id=`, stripped after the read; query `?token=`/`?launch_token=` kept for local dev), decoded for `sub` + `game_scope` (never hard-coded), sent as `Authorization: Bearer` on every `/api` call, re-minted every 45 min via `POST /api/v1/games/{slug}/launch-token` (60 s retry). The profile nickname from `GET /api/v1/users/{sub}/profile` (never `/api/v1/me`, never usernames; `Player <id8>` fallback) replaces the `Guest-xxxx` label on the profile screen and on score/achievement submissions (which also carry the account id; `server.js` stores it on board entries so rows resolve to nicknames, own row marked "You"). Board fetches carry the Bearer header; when the own-server routes 404 on-platform the client falls back to the local board with no console errors.
+- Standalone (no launch token): no same-origin `/api` or `/ws` request at all; the local clock drives the daily. Leaderboards are always the device-local `blockstead.leaderboards.v1`, and achievements live only in the save document.
+- SDK: `starhermit-sdk.js` (verbatim copy of the canonical client) and `js/platform.js` (`window.BSPlatform`) load before every other script; the adapter calls `StarHermit.init()` as it loads. Without a token no StarHermit request is made.
+- Launch token and renewal: the SDK reads `#game_token=<jwt>[&session_id=]` or a sign-in return `#access_token=…`, strips it, takes the slug from `game_scope` (never hard-coded) and renews via `POST /api/v1/games/{slug}/launch-token`; the current token rides as `Authorization: Bearer` on `GET /api/v1/time`. If renewal is refused the title account line reads "Signed out of StarHermit — progress stays on this device." and play continues locally.
+- Sign-in: on `*.starhermit.com` without a token the title shows **Sign in with StarHermit** (`StarHermit.signIn()`); hidden when signed in and locally.
+- Identity: the title account line shows "Playing as <nickname> · <sync status>". The profile nickname (`GET /api/v1/users/{sub}/profile`, never `/api/v1/me`; `Player <id8>` fallback, no request when signed out) replaces the `Guest-xxxx` label on the profile screen and on score/achievement submissions (which also carry the account id; `server.js` stores it on board entries so rows resolve to nicknames, own row marked "You"). When the own-server routes 404 on-platform the client falls back to the local board with no console errors.
+- Cloud save: the whole save document (settings + progress, the checksummed `blockstead.save.v1` wrapper) mirrors to `/api/v1/me/cloud-saves/game:{slug}`. On start the remote copy wins; localStorage stays the offline cache; every save queues a debounced (2 s) upload, flushed on `pagehide`/hidden.
+- Settings KV: every save sends the changed `settings` keys with `PATCH /api/v1/games/{slug}/settings`; on start the platform's values override the save document's.
+- Invite: when signed in the title shows **Invite a friend**, which copies `StarHermit.inviteLink()` and confirms with a toast (the link is shown if the clipboard is blocked).
+- Controls: `starhermit.txt` declares 17 `control.*` actions (`pause`, `back`, `prev`, `next`, `place`, `gather`, `remove`, `undo`, `hint`, `camera`, `topDown`, `skip`, `block1`–`block5`); keydown routes by `event.code` through `StarHermit.loadBindings` (defaults standalone) and the How to play cards show the effective keys.
+- Strings: sign-in, invite, toast and account-line texts exist in all nine locales (`ACCOUNT_STRINGS` in `js/gfx-panel.js`).
 
 **Not used**
 
-- Avatars, presence heartbeats, activity start/end, per-game cloud settings or cloud saves, friends filtering, realtime rooms, matchmaking, chat, voice, entitlements. Achievements are delivered to the server keyed by the account id (or guest name offline) and also kept locally in the save document.
+- StarHermit achievements and leaderboards and the `server.js` leaderboard/score/achievement routes, avatars (no player chip), presence heartbeats, activity start/end, platform sessions/matchmaking/invites/chat/replays (single-player), friends filtering, realtime rooms, voice, entitlements. Achievements are kept locally in the save document.
 
 ## 13. Technical architecture
 
 - **Module boundaries.** `rules.js` and `content.js` are pure UMD modules shared with Node; `session.js` wraps them with ids, undo and envelopes; `main.js` is the only caller of `Session.execute`; `render.js` and `ui.js` consume immutable state snapshots and call back through `onPick`/hooks.
-- **Determinism and replay.** Same content version + seed + ordered commands → identical `hashState` sequence; verified by `tests/run-tests.js` (40 random trials) and by the server on every ranked submission. Cosmetic streams (decor, AV, weather) never touch rules state.
+- **Determinism and replay.** Same content version + seed + ordered commands → identical `hashState` sequence; verified by `tests/run-tests.js` (40 random trials) and by `server.js` for submitted envelopes (server tests only). Cosmetic streams (decor, AV, weather) never touch rules state.
 - **Persistence.** `blockstead.save.v1` — `{sum, payload}` where `sum` is FNV-1a of the payload; corrupt or future-version documents fall back to a fresh save; an in-memory fallback keeps the session alive when `localStorage` throws. `blockstead.round.v1` — `{cfg, commands, mode, levelIndex}` snapshot after every accepted command, pause and undo; resumed by replaying the log and cleared on any terminal or leave. `blockstead.leaderboards.v1` — local entries.
 - **Lifecycle.** `visibilitychange` pauses an active round, stops the render loop and suspends audio; resume restores the loop and the clock baseline so paused time never counts (`elapsedMs` comes from command timestamps quantised to 100 ms).
 - **Rendering budget.** Plots are ≤36 columns × 6 blocks, so meshes are rebuilt per state change from shared geometries/materials; rain 0/600/1600 points by tier; shadow map 1024²; DPR caps 1/1.5/2; `low` tier disables shadows and rain. The loop clamps `dt` to 50 ms and stops entirely while hidden.
 - **Resilience.** WebGL creation failure or context loss shows the fallback dialog and forces the board mirror; every sample fetch failure keeps the synth path; every image has `onerror="this.hidden=true"`; the API is optional.
 - **Funnel counters** (`progress.stats.funnel`) count boot, mode starts, lesson steps, round ends, retries and setting changes locally only; nothing is sent.
-- **How the e2e drives the real UI.** `tests/e2e.mjs` embeds its own static server on an ephemeral port (so `/api/*` 404s and the offline path is exercised), launches headless Chrome, and for each of a 1280×800 desktop context and a 390×844 touch context: waits for `data-screen="title"`, opens Settings and checks "Always show text board" and "Reduced motion" through the real form, opens Journey and asserts 40 cells with exactly one unlocked, starts stage 1, then loops: click the on-screen Hint button, read the HUD message, and either click Gather or click the mirror cell named in the hint, until the results overlay appears; it then asserts the breakdown rows, the "every goal met" headline, stars, persisted `journeyStars.j01` and `stats.rounds`, presses Next, pauses with `P`, resumes, opens Settings from the pause overlay, and leaves to the title. Any page error, console error (other than known GPU driver noise and `/api/*` 404s) or non-API HTTP ≥400 fails the run.
+- **How the e2e drives the real UI.** `tests/e2e.mjs` embeds its own static server on an ephemeral port (any same-origin `/api` or `/ws` request fails the run), launches headless Chrome, and for each of a 1280×800 desktop context and a 390×844 touch context: waits for `data-screen="title"`, opens Settings and checks "Always show text board" and "Reduced motion" through the real form, opens Journey and asserts 40 cells with exactly one unlocked, starts stage 1, then loops: click the on-screen Hint button, read the HUD message, and either click Gather or click the mirror cell named in the hint, until the results overlay appears; it then asserts the breakdown rows, the "every goal met" headline, stars, persisted `journeyStars.j01` and `stats.rounds`, presses Next, pauses with `P`, resumes, opens Settings from the pause overlay, and leaves to the title. Any page error, console error (other than known GPU driver noise) or HTTP ≥400 fails the run.
 
 ## 14. Testing and acceptance criteria
 
 `npm test` (`tests/run-tests.js`, 1538 assertions) verifies: every legality check and rejection id; each scoring component and the total; move-limit, resign, landlock and monotonic tick; serialize/deserialize hash equality and version rejection; 40 seeded sessions of random legal play that replay-verify, reject a tampered score, and undo cleanly; 300 fuzzed malformed commands without throws or NaN; every journey stage, challenge, practice preset and one week of dailies is versioned, has reachable goals, has legal actions at start, and is solved by the greedy hint solver within budget (within its move limit where one exists); the endless ruleset progresses; every lesson has legal actions and a completion event; achievement keys are unique lowercase; save checksum and migration; server trusted-content lookup rejects bad ids.
 
-`npm test` also runs `tests/gfx.test.mjs` (preset detection, resolve with overrides and scale clamping, preset clears overrides, locale coverage). `npm run test:e2e` verifies the playthrough described in §13 on desktop and mobile with zero console errors or warnings, including Settings › Graphics: Low then High, a Bloom override and the frame-rate readout, persistence across a reload, and Auto resolving to Low on the headless software GPU.
+`npm test` also runs `tests/gfx.test.mjs` (preset detection, resolve with overrides and scale clamping, preset clears overrides, locale coverage) and `tests/platform.test.mjs` (StarHermit adapter in a sandbox with a stubbed `fetch`: no requests standalone; token read and fragment stripped; nickname; settings patch of changed keys; cloud-save round trip through `game:<slug>`; control overrides; sign-out on refused renewal; account strings in all nine locales). `npm run test:e2e` verifies the playthrough described in §13 on desktop and mobile with zero console errors or warnings, including Settings › Graphics: Low then High, a Bloom override and the frame-rate readout, persistence across a reload, and Auto resolving to Low on the headless software GPU.
 
 **QA bar (checkable).**
 
@@ -321,7 +329,7 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 - Zero console errors or warnings at 1280×800 and 390×844, portrait and landscape, with and without WebGL.
 - Nothing cut off: HUD trays, goals, results rows and action row, title buttons at both viewports; long HUD text ellipsises rather than overflows.
 - Every input has visible and audible acknowledgment; every rejection shows its reason.
-- Ranked scores reach the server only with a verifiable envelope; an edited total is rejected with `score-mismatch`.
+- `server.js` accepts a ranked score only with a verifiable envelope; an edited total is rejected with `score-mismatch` (the shipped client does not submit).
 
 ## 15. Asset inventory
 
@@ -342,7 +350,7 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 
 ## 16. Known limitations
 
-- No localization outside the Graphics panel: other strings are English literals (§10).
+- No localization outside the Graphics panel and the StarHermit account strings: other strings are English literals (§10).
 - Without a launch token the player identity is a per-load random guest name attributed to scores and achievements; the local save is not cloud-synced.
 - Leaderboards are global only; no friends filter. The Scores screen exposes only the `global` and today's `daily` boards (journey and challenge boards are submitted but not browsable in the UI).
 - Landlock can only occur when removal is impossible (remove tool disabled, or every column top is rock); with the remove tool on, a full plot always has a legal remove, so score chase effectively ends by resignation rather than sealing.
@@ -356,7 +364,7 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 ## Design intent not yet implemented
 
 - String table with the nine target locales, chosen from `navigator.language` with a settings override.
-- StarHermit avatar on the profile screen, presence heartbeats and activity start/end pairing, per-game cloud settings and cloud-saved progress (launch-token identity with board nickname resolution is done; scores/achievements key off the account id when hosted).
+- StarHermit avatar on the profile screen, presence heartbeats and activity start/end pairing.
 - Friends-filtered leaderboards and a shareable seed link for dailies and challenges.
 - Journey and challenge board tabs on the Scores screen.
 - Keyboard camera orbit (e.g. `Q`/`E`, `+`/`−`).

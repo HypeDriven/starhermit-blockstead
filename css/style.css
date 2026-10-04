@@ -289,3 +289,7 @@ body.reduced-motion * { transition: none !important; animation: none !important;
 }
 .title-card .tagline { text-shadow: 0 1px 6px #000a; }
 body.high-contrast .title-card { background: rgba(0,0,0,.88); }
+
+/* StarHermit account: hidden buttons, status line */
+.btn[hidden] { display: none !important; }
+#account-line { text-align: center; margin: 10px 0 0; opacity: .85; }
