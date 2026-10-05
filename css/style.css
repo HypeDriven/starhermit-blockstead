@@ -26,11 +26,16 @@ body.high-contrast :focus-visible { outline-color: #00e5ff; }
 /* ---------- playfield ---------- */
 #scene-host { position: fixed; inset: 0; z-index: 0; }
 #scene-host canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* Large screens: every DOM UI layer zooms by --ui-scale (ui-scale.js; exactly 1
+ * up to 1600x1000). The full-viewport 3D canvas is never zoomed. vw/vh inside
+ * zoomed layers are divided by the scale (phone-only breakpoints always run at 1). */
+.hud, #board-mirror, #screens, #lesson-banner, #toast, #caption, #fps-meter, #webgl-fallback { zoom: var(--ui-scale, 1); }
 #app[data-screen="boot"] #scene-host { display: none; }
 
 #webgl-fallback {
   position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
-  width: min(94vw, 560px); padding: 20px; z-index: 60; text-align: center;
+  width: min(calc(94vw / var(--ui-scale, 1)), 560px); padding: 20px; z-index: 60; text-align: center;
 }
 
 /* ---------- HUD ---------- */
@@ -42,7 +47,7 @@ body.high-contrast :focus-visible { outline-color: #00e5ff; }
 #hud-top {
   top: max(env(safe-area-inset-top), 8px); left: 50%; transform: translateX(-50%);
   display: flex; gap: 14px; align-items: center; justify-content: space-between;
-  width: min(96vw, 1000px);
+  width: min(calc(96vw / var(--ui-scale, 1)), 1000px);
 }
 .hud-group { display: flex; gap: 10px; align-items: center; min-width: 0; }
 #hud-objective { font-weight: 700; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -57,12 +62,12 @@ body.high-contrast :focus-visible { outline-color: #00e5ff; }
 
 #hud-message {
   top: calc(max(env(safe-area-inset-top), 8px) + 60px); left: 50%; transform: translateX(-50%);
-  width: min(94vw, 720px); text-align: center; font-weight: 600;
+  width: min(calc(94vw / var(--ui-scale, 1)), 720px); text-align: center; font-weight: 600;
 }
 
 /* rails: wide desktop */
 @media (min-width: 1024px) {
-  #hud-goals { top: 84px; left: max(env(safe-area-inset-left), 14px); right: auto; width: min(24vw, 300px); }
+  #hud-goals { top: 84px; left: max(env(safe-area-inset-left), 14px); right: auto; width: min(calc(24vw / var(--ui-scale, 1)), 300px); }
   #hud-actions { top: 84px; right: max(env(safe-area-inset-right), 14px); bottom: auto; left: auto; transform: none; flex-direction: column; }
   #hud-palette { bottom: max(env(safe-area-inset-bottom), 14px); left: 50%; transform: translateX(-50%); }
 }
@@ -147,14 +152,14 @@ body.left-handed #hud-actions { left: max(env(safe-area-inset-left), 10px); righ
 
 .panel {
   background: #101c2ae8; border: 1px solid #ffffff1f; border-radius: 18px;
-  padding: clamp(14px, 3vw, 26px); width: min(96vw, 680px); margin: auto;
+  padding: clamp(14px, calc(3vw / var(--ui-scale, 1)), 26px); width: min(calc(96vw / var(--ui-scale, 1)), 680px); margin: auto;
   max-width: 70ch;
 }
-.panel.wide { width: min(96vw, 900px); }
-.panel.scroll { max-height: min(88vh, 780px); overflow: auto; }
+.panel.wide { width: min(calc(96vw / var(--ui-scale, 1)), 900px); }
+.panel.scroll { max-height: min(calc(88vh / var(--ui-scale, 1)), 780px); overflow: auto; }
 .panel.modal { background: #101c2a; }
 
-h1, h2 { font-size: clamp(1.5rem, 4.5vw, 2.1rem); margin: .1em 0 .4em; }
+h1, h2 { font-size: clamp(1.5rem, calc(4.5vw / var(--ui-scale, 1)), 2.1rem); margin: .1em 0 .4em; }
 h3 { margin: .6em 0 .3em; }
 .tagline { opacity: .9; }
 .mini { display: block; font-size: .85em; opacity: .85; }
@@ -163,15 +168,15 @@ h3 { margin: .6em 0 .3em; }
 .row.wrap { flex-wrap: wrap; }
 .stack { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 
-.title-card { width: min(96vw, 640px); margin: auto; text-align: center; }
-.title-card h1 { font-size: clamp(2.4rem, 8vw, 4rem); letter-spacing: .02em; text-shadow: 0 2px 18px #0008; }
+.title-card { width: min(calc(96vw / var(--ui-scale, 1)), 640px); margin: auto; text-align: center; }
+.title-card h1 { font-size: clamp(2.4rem, calc(8vw / var(--ui-scale, 1)), 4rem); letter-spacing: .02em; text-shadow: 0 2px 18px #0008; }
 .key-art {
-  display: block; width: min(92vw, 560px); height: auto; max-height: 34vh; object-fit: cover;
+  display: block; width: min(calc(92vw / var(--ui-scale, 1)), 560px); height: auto; max-height: calc(34vh / var(--ui-scale, 1)); object-fit: cover;
   margin: 0 auto 6px; border-radius: 16px; border: 1px solid #ffffff22; box-shadow: 0 10px 30px #0006;
 }
 @media (max-height: 560px) { .key-art { max-height: 22vh; } }
 .results-art {
-  display: block; width: 100%; max-width: 420px; height: auto; max-height: 18vh; object-fit: cover;
+  display: block; width: 100%; max-width: 420px; height: auto; max-height: calc(18vh / var(--ui-scale, 1)); object-fit: cover;
   margin: 4px auto 8px; border-radius: 12px; border: 1px solid #ffffff22;
 }
 @media (max-width: 639px) { .results-art { max-height: 12vh; } }
@@ -185,7 +190,7 @@ h3 { margin: .6em 0 .3em; }
 .btn:hover:not(:disabled) { filter: brightness(1.15); }
 .btn:disabled { opacity: .45; cursor: default; }
 .btn.primary { background: #3b82f6; border-color: #3b82f6; }
-.btn.big { width: min(90vw, 420px); padding: 15px; font-size: 1.15em; }
+.btn.big { width: min(calc(90vw / var(--ui-scale, 1)), 420px); padding: 15px; font-size: 1.15em; }
 .btn.icon { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 72px; min-height: 64px; font-size: 24px; }
 .btn-sub { font-size: .55em; font-weight: 600; }
 .btn.danger { background: #b91c1c; }
@@ -227,7 +232,7 @@ h3 { margin: .6em 0 .3em; }
 #settings-form fieldset { border: 1px solid #ffffff22; border-radius: 12px; margin-bottom: 14px; padding: 10px 14px; }
 #settings-form legend { font-weight: 700; padding: 0 6px; }
 #settings-form label { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 8px; }
-#settings-form input[type="range"] { width: min(50vw, 220px); }
+#settings-form input[type="range"] { width: min(calc(50vw / var(--ui-scale, 1)), 220px); }
 #settings-form input, #settings-form select { min-height: 34px; font: inherit; accent-color: #3b82f6; }
 #settings-form select { background: #14202f; color: #fff; border: 1px solid #ffffff33; border-radius: 8px; padding: 4px 8px; }
 
@@ -242,7 +247,7 @@ h3 { margin: .6em 0 .3em; }
 
 #lesson-banner {
   position: fixed; z-index: 18; top: calc(max(env(safe-area-inset-top), 8px) + 60px);
-  left: 50%; transform: translateX(-50%); width: min(94vw, 700px);
+  left: 50%; transform: translateX(-50%); width: min(calc(94vw / var(--ui-scale, 1)), 700px);
   background: #14243af2; border: 1px solid #ffd27a66; border-radius: 14px; padding: 12px 16px;
 }
 #lesson-banner p { margin: .4em 0 .7em; }
@@ -251,7 +256,7 @@ h3 { margin: .6em 0 .3em; }
   position: fixed; z-index: 40; bottom: calc(max(env(safe-area-inset-bottom), 20px) + 120px);
   left: 50%; transform: translateX(-50%);
   background: #f5f2e8; color: #141414; padding: 9px 16px; border-radius: 10px; font-weight: 600;
-  max-width: 92vw; text-align: center;
+  max-width: calc(92vw / var(--ui-scale, 1)); text-align: center;
 }
 #caption {
   position: fixed; z-index: 16; bottom: calc(max(env(safe-area-inset-bottom), 8px) + 210px);
@@ -270,8 +275,8 @@ body.reduced-motion * { transition: none !important; animation: none !important;
 #settings-form .gfx-row { flex-wrap: wrap; }
 .gfx-label { flex: 1 1 10em; min-width: 0; }
 .gfx-control { display: inline-flex; align-items: center; gap: 8px; flex: 0 1 auto; max-width: 100%; }
-.gfx-control select { max-width: min(62vw, 300px); }
-#settings-form .gfx-control input[type="range"] { width: min(42vw, 200px); }
+.gfx-control select { max-width: min(calc(62vw / var(--ui-scale, 1)), 300px); }
+#settings-form .gfx-control input[type="range"] { width: min(calc(42vw / var(--ui-scale, 1)), 200px); }
 .gfx-out { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
 .gfx-summary { margin: 4px 0 10px; overflow-wrap: anywhere; }
 .gfx-note { margin: 0 0 10px; color: #ffd27a; }
@@ -285,7 +290,7 @@ body.reduced-motion * { transition: none !important; animation: none !important;
 /* Title card sits on a soft scrim so the animated showcase valley never costs text contrast. */
 .title-card {
   background: rgba(10,18,28,.5); backdrop-filter: blur(4px);
-  border-radius: 20px; padding: clamp(12px, 2.5vw, 22px);
+  border-radius: 20px; padding: clamp(12px, calc(2.5vw / var(--ui-scale, 1)), 22px);
 }
 .title-card .tagline { text-shadow: 0 1px 6px #000a; }
 body.high-contrast .title-card { background: rgba(0,0,0,.88); }
