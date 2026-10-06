@@ -67,12 +67,19 @@
 
   // ---------- announcements / toasts / captions ----------
   var toastTimer = null;
+  // Over a menu/results screen the toast docks at the top and the active
+  // screen makes room for it, so it never covers a heading or a button.
   function toast(text) {
-    var t = $('toast');
+    var t = $('toast'), app = $('app');
     t.textContent = text;
     t.classList.remove('hidden');
+    app.style.setProperty('--toast-h', t.offsetHeight + 'px');
+    app.classList.add('toast-up');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.add('hidden'); }, 2400);
+    toastTimer = setTimeout(function () {
+      t.classList.add('hidden');
+      app.classList.remove('toast-up');
+    }, 2400);
   }
   function announce(text) { $('sr-live').textContent = text; }
   var captionTimer = null;
@@ -94,6 +101,7 @@
       m.classList.add('hidden');
     }, 2600);
     if (text) announce(text);
+    placeTopStack();
   }
 
   // ---------- HUD ----------
@@ -105,6 +113,7 @@
     ['hud-top', 'hud-goals', 'hud-palette', 'hud-actions'].forEach(function (id) {
       $(id).classList.toggle('hidden', !view.visible);
     });
+    if (!view.visible) message(''); // guidance never lingers over the menus
     $('btn-undo').disabled = !view.canUndo;
     $('btn-hint').disabled = !view.canHint;
     $('btn-remove').setAttribute('aria-pressed', view.removeMode ? 'true' : 'false');
@@ -407,6 +416,26 @@
       $('lesson-title').textContent = lesson.title + (progressText ? ' — ' + progressText : '');
       $('lesson-text').textContent = lesson.text;
     }
+    placeTopStack();
+  }
+
+  // The lesson banner and the guidance message hang below the top status bar
+  // (and below the goals card when it shares their column). Measured rects are
+  // visual px; both elements are zoomed, so divide by the UI scale.
+  function placeTopStack() {
+    var hud = $('hud-top'), b = $('lesson-banner'), m = $('hud-message'), g = $('hud-goals');
+    if (!hud || hud.classList.contains('hidden')) return;
+    var s = (root.UIScale && root.UIScale.value) || 1;
+    var y = hud.getBoundingClientRect().bottom;
+    if (!b.classList.contains('hidden')) {
+      var br = b.getBoundingClientRect();
+      var gr = g.classList.contains('hidden') ? null : g.getBoundingClientRect();
+      var by = y;
+      if (gr && gr.height && gr.left < br.right && gr.right > br.left) by = Math.max(by, gr.bottom);
+      b.style.setProperty('--banner-top', (by / s + 8) + 'px');
+      y = b.getBoundingClientRect().bottom;
+    }
+    m.style.setProperty('--message-top', (y / s + 8) + 'px');
   }
 
   function setDailyCountdown(text) { $('daily-countdown').textContent = text; }
@@ -447,6 +476,11 @@
     document.querySelectorAll('[data-back]').forEach(function (b) {
       b.addEventListener('click', back);
     });
+    root.addEventListener('resize', placeTopStack);
+    if (root.ResizeObserver) {
+      var ro = new ResizeObserver(placeTopStack);
+      ['hud-top', 'hud-goals', 'lesson-banner'].forEach(function (id) { ro.observe($(id)); });
+    }
   }
 
   root.BSUI = {

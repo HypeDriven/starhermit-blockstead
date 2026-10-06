@@ -61,7 +61,7 @@ body.high-contrast :focus-visible { outline-color: #00e5ff; }
 .goal-done { opacity: .75; text-decoration: line-through; }
 
 #hud-message {
-  top: calc(max(env(safe-area-inset-top), 8px) + 60px); left: 50%; transform: translateX(-50%);
+  top: var(--message-top, calc(max(env(safe-area-inset-top), 8px) + 88px)); left: 50%; transform: translateX(-50%);
   width: min(calc(94vw / var(--ui-scale, 1)), 720px); text-align: center; font-weight: 600;
 }
 
@@ -246,11 +246,15 @@ h3 { margin: .6em 0 .3em; }
 .lb-table th, .lb-table td { text-align: left; padding: 5px 9px; border-bottom: 1px solid #ffffff14; }
 
 #lesson-banner {
-  position: fixed; z-index: 18; top: calc(max(env(safe-area-inset-top), 8px) + 60px);
+  position: fixed; z-index: 18; top: var(--banner-top, calc(max(env(safe-area-inset-top), 8px) + 88px));
   left: 50%; transform: translateX(-50%); width: min(calc(94vw / var(--ui-scale, 1)), 700px);
   background: #14243af2; border: 1px solid #ffd27a66; border-radius: 14px; padding: 12px 16px;
 }
 #lesson-banner p { margin: .4em 0 .7em; }
+/* landscape phones: lesson card sits between the goals rail and the actions column */
+@media (max-width: 959px) and (orientation: landscape) and (max-height: 540px) {
+  #lesson-banner { left: calc(min(26vw, 200px) + 16px); right: 84px; width: auto; transform: none; font-size: .85em; padding: 8px 12px; }
+}
 
 #toast {
   position: fixed; z-index: 40; bottom: calc(max(env(safe-area-inset-bottom), 20px) + 120px);
@@ -258,6 +262,8 @@ h3 { margin: .6em 0 .3em; }
   background: #f5f2e8; color: #141414; padding: 9px 16px; border-radius: 10px; font-weight: 600;
   max-width: calc(92vw / var(--ui-scale, 1)); text-align: center;
 }
+#app:not([data-screen="game"]) #toast { top: max(env(safe-area-inset-top), 8px); bottom: auto; }
+#app.toast-up:not([data-screen="game"]) .screen.active { padding-top: calc(max(env(safe-area-inset-top), 8px) + var(--toast-h, 40px) + 10px); }
 #caption {
   position: fixed; z-index: 16; bottom: calc(max(env(safe-area-inset-bottom), 8px) + 210px);
   left: 50%; transform: translateX(-50%);

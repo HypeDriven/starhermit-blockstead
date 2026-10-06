@@ -263,6 +263,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     processEvents(res.events);
     refreshUI(res.events);
     checkLesson(res.events);
+    if (!round.state) return res; // a completed lesson already left the round
     if (round.state.terminal) endRound();
     autosaveRound();
     return res;
@@ -691,6 +692,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     round.state = round.session.state;
     Audio.play('undo');
     checkLesson([{ type: 'undo' }]);
+    if (!round.state) return; // the undo lesson just completed and left the round
     rebuildFocusTargets();
     refreshUI();
     saveRoundSnapshot();
