@@ -470,9 +470,26 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     return null; // practice/learn unranked
   }
 
+  // Hosted play only: post a ranked round's total to the platform
+  // high-score board and show the player's rank on the results overlay.
+  function postToLeaderboard(total) {
+    const line = document.getElementById('results-lb');
+    if (!line) return;
+    if (!P || !P.hosted) { line.hidden = true; return; }
+    line.hidden = false;
+    line.textContent = 'Posting score to the leaderboard…';
+    P.submitScore(total).then(r => {
+      line.textContent = !r.posted ? 'Score not posted to the leaderboard.'
+        : r.rank ? 'Leaderboard rank: #' + r.rank : 'Score posted to the leaderboard.';
+    });
+  }
+
   function submitScore() {
     const board = rankedBoard();
+    const lbLine = document.getElementById('results-lb');
+    if (lbLine) lbLine.hidden = true;
     if (!board) return;
+    postToLeaderboard(round.state.score.total);
     const envelope = Session.envelope(round.session);
     const entry = {
       board, name: playerName, player: P.userId || undefined, score: envelope.score.total,

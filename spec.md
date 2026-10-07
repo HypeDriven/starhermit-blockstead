@@ -9,11 +9,11 @@ Present-tense description of the shipped game. Every statement below is true of 
 | | |
 |---|---|
 | Genre | Solo construction puzzle / relaxed builder with ranked seeds |
-| Players | 1; scores compared on device-local leaderboards |
+| Players | 1; scores compared on device-local leaderboards and, when signed in, the StarHermit `high-score` board |
 | Session | 2–4 min per journey stage, 5–10 min for a daily or challenge, open-ended in score chase |
 | Platforms | Desktop and mobile browsers (portrait and landscape); keyboard, mouse, touch, basic gamepad |
 | Rendering | Three.js r160 (`vendor/three.module.min.js`, addons from the same revision in `vendor/three-addons/`, resolved through an import map) WebGL scene with post-processing and quality presets, plus a full semantic-HTML mirror; playable with WebGL unavailable |
-| Hosting | Static files plus an optional authoritative Node script (`server.js`) declared in `starhermit.txt` |
+| Hosting | Static files plus the StarHermit platform script `score-script.js` declared in `starhermit.txt`; `server.js` is the local dev server |
 
 ### File map
 
@@ -32,7 +32,8 @@ Present-tense description of the shipped game. Every statement below is true of 
 | `js/gfx-panel.js` | Settings › Graphics controls and their strings in all nine target locales |
 | `js/ui.js` | DOM shell: screen stack, HUD, palette, board mirror, results, settings form, help, profile, leaderboards, lessons, toasts, live region |
 | `js/main.js` | Controller and state machine; the only module that issues commands into the session |
-| `server.js` | Static server (refuses `data/`, `tests/`, `tools/`, `node_modules/`, dotfiles) plus `/api/v1/{time,daily,leaderboard,score,achievement}` |
+| `score-script.js` | StarHermit platform script (`server=`): range-checks a finished round's total and posts it to the `high-score` leaderboard (canonical copy in the games repo's `tools/score-script.js`) |
+| `server.js` | Local dev server: static server (refuses `data/`, `tests/`, `tools/`, `node_modules/`, dotfiles) plus `/api/v1/{time,daily,leaderboard,score,achievement}` |
 | `data/` | Server-side JSON stores for leaderboards and achievements (never served) |
 | `sfx/` | 24 Opus clips, `manifest.txt` (canonical binding), `manifest.json` (generator input), `manifest.md` (generated) |
 | `assets/` | `key-art.webp` (title), `results-win.webp`, `results-lose.webp` |
@@ -41,7 +42,7 @@ Present-tense description of the shipped game. Every statement below is true of 
 | `tests/gfx.test.mjs` | `node --test` unit tests for `gfx.js` and the Graphics panel strings (part of `npm test`) |
 | `tests/e2e.mjs` | Playwright playthrough on desktop and mobile viewports (`npm run test:e2e`) |
 | `tests/browser-smoke.html`, `tests/shot-game.html` | Manual iframe harnesses (not shipped) |
-| `starhermit.txt` | `name=Blockstead`, `launch=index.html`, `owner=…`, `server=server.js`, `cover=coverart.png` |
+| `starhermit.txt` | `name=Blockstead`, `launch=index.html`, `owner=…`, `server=score-script.js`, `cover=coverart.png` |
 
 ## 2. Vision and design pillars
 
@@ -287,8 +288,9 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 
 **Used**
 
-- `starhermit.txt`: `name`, `launch=index.html`, `owner`, `server=server.js`, `cover=coverart.png`.
-- Server script `server.js`: `GET /api/v1/time` (the only route the client calls, and only when signed in; it computes a round-trip-adjusted offset for the daily countdown and date). The rest are kept for the server tests but not called by the client: `GET /api/v1/daily`, `GET /api/v1/leaderboard?board=` (top 50, tie order as §4), `POST /api/v1/score` (envelope replayed with `Session.verify` against trusted content only; duplicate envelopes idempotent; 5000-entry cap), `POST /api/v1/achievement` (idempotent per player key). Per-IP token bucket (30 tokens, +1 per 2 s, score costs 5), 64 KB body limit, structured `{error}` responses.
+- `starhermit.txt`: `name`, `launch=index.html`, `owner`, `server=score-script.js`, `cover=coverart.png`.
+- Leaderboard: when signed in, every finished ranked round (journey, daily, challenge, score chase) posts its total through `StarHermit.submitScores` (a practice session whose `score-script.js` posts it to the `high-score` board, integer, higher is better, 0–100,000), and the results overlay shows "Leaderboard rank: #N" (or "Score posted…" / "Score not posted…"). Practice and learn post nothing; standalone play posts nothing and shows no line.
+- Local dev server `server.js`: `GET /api/v1/time` (the only route the client calls, and only when signed in; it computes a round-trip-adjusted offset for the daily countdown and date). The rest are kept for the server tests but not called by the client: `GET /api/v1/daily`, `GET /api/v1/leaderboard?board=` (top 50, tie order as §4), `POST /api/v1/score` (envelope replayed with `Session.verify` against trusted content only; duplicate envelopes idempotent; 5000-entry cap), `POST /api/v1/achievement` (idempotent per player key). Per-IP token bucket (30 tokens, +1 per 2 s, score costs 5), 64 KB body limit, structured `{error}` responses.
 - Boards: `global` (score chase), `daily:<date>`, `journey:<id>`, `challenge:<id>`; practice and learn are unranked.
 - Standalone (no launch token): no same-origin `/api` or `/ws` request at all; the local clock drives the daily. Leaderboards are always the device-local `blockstead.leaderboards.v1`, and achievements live only in the save document.
 - SDK: `starhermit-sdk.js` (verbatim copy of the canonical client) and `js/platform.js` (`window.BSPlatform`) load before every other script; the adapter calls `StarHermit.init()` as it loads. Without a token no StarHermit request is made.
@@ -303,7 +305,7 @@ Conventions follow https://wiki.starhermit.com/ (manifest at the distribution ro
 
 **Not used**
 
-- StarHermit achievements and leaderboards and the `server.js` leaderboard/score/achievement routes, avatars (no player chip), presence heartbeats, activity start/end, platform sessions/matchmaking/invites/chat/replays (single-player), friends filtering, realtime rooms, voice, entitlements. Achievements are kept locally in the save document.
+- StarHermit achievements, the `server.js` leaderboard/score/achievement routes, avatars (no player chip), presence heartbeats, activity start/end, platform sessions/matchmaking/invites/chat/replays (single-player), friends filtering, realtime rooms, voice, entitlements. Achievements are kept locally in the save document.
 
 ## 13. Technical architecture
 
