@@ -39,7 +39,7 @@ export const DEFAULTS = { preset: 'auto', render_scale: 1, adaptive: true, show_
 export function detectPreset(gpu) {
   const g = String(gpu || '').toLowerCase();
   if (/swiftshader|llvmpipe|softpipe|software|basic render|microsoft basic/.test(g)) return 'low';
-  if (/nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|amd radeon(?! graphics)|apple m\d/.test(g)) return 'high';
+  if (/nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|amd radeon(?!.*graphics)|apple m\d/.test(g)) return 'high';
   return 'balanced';
 }
 
