@@ -326,7 +326,7 @@
       var n = rng.range(range[0], range[1]);
       if (n > 0 && s.cfg.blocks.indexOf(t) >= 0) {
         s.inv[t] = Math.min(INV_CAP, (s.inv[t] || 0) + n);
-        gains[t] = n;
+        gains[t] = (globalThis.GameOptions ? globalThis.GameOptions.tagBus(n, t) : n);
       }
     }
     s.gathered++;

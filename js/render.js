@@ -1024,10 +1024,10 @@ export function createRenderer(opts) {
     const key = q.post && !postFailed ? [q.ao, q.bloom, q.grade, q.antialias, size[0], size[1], pixelRatio].join('|') : 'none';
     if (key !== postKey) { postKey = key; buildPost(size[0], size[1]); }
     if (composer) {
-      try { composer.render(dt); }
-      catch (e) { postFailed = true; composer.dispose(); composer = null; renderer.render(scene, camera); }
+      try { (globalThis.GameOptions ? globalThis.GameOptions.draw(composer.renderer, () => composer.render(dt)) : composer.render(dt)); }
+      catch (e) { postFailed = true; composer.dispose(); composer = null; (globalThis.GameOptions ? globalThis.GameOptions.draw(renderer, () => renderer.render(scene, camera)) : renderer.render(scene, camera)); }
     } else {
-      renderer.render(scene, camera);
+      (globalThis.GameOptions ? globalThis.GameOptions.draw(renderer, () => renderer.render(scene, camera)) : renderer.render(scene, camera));
     }
   }
 
