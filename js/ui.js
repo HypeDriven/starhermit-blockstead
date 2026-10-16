@@ -7,6 +7,9 @@
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
+  var L = root.BLI18n; // js/i18n.js (loaded first)
+  var t = function (k, v, f) { return L ? L.t(k, v, f) : (f != null ? f : k); };
+  var blockLabel = function (b) { return L ? L.blockLabel(b) : b; };
   var hooks = {};
   var screenStack = ['title'];
   var settingsSchema = null;
@@ -57,12 +60,7 @@
   }
 
   function screenLabel(name) {
-    return {
-      title: 'Title screen', modes: 'Mode selection', setup: 'Round setup',
-      journey: 'Journey stages', pause: 'Paused', results: 'Round results',
-      settings: 'Settings', help: 'How to play', profile: 'Profile',
-      leaderboard: 'Scores', learn: 'Lessons'
-    }[name] || name;
+    return t('scr.' + name, null, name);
   }
 
   // ---------- announcements / toasts / captions ----------
@@ -134,12 +132,13 @@
     var wrap = $('palette-blocks');
     wrap.textContent = '';
     blocks.forEach(function (b) {
-      var meta = contentBlocks[b] || { label: b, icon: '?' };
+      var meta = contentBlocks[b] || { icon: '?' };
+      var label = blockLabel(b);
       var btn = el('button', 'btn icon palette-btn' + (selected === b ? ' selected' : ''));
       btn.setAttribute('aria-pressed', selected === b ? 'true' : 'false');
-      btn.setAttribute('aria-label', meta.label + ', ' + (inv[b] || 0) + ' in stock');
+      btn.setAttribute('aria-label', t('palette.aria', { label: label, n: inv[b] || 0 }));
       btn.appendChild(el('span', 'palette-icon', meta.icon));
-      btn.appendChild(el('span', 'btn-sub', meta.label + ' ×' + (inv[b] || 0)));
+      btn.appendChild(el('span', 'btn-sub', label + ' ×' + (inv[b] || 0)));
       btn.addEventListener('click', function () { hooks.onPaletteSelect(b); });
       wrap.appendChild(btn);
     });
@@ -160,9 +159,8 @@
           var top = st.length ? st[st.length - 1] : null;
           var b = el('button', 'mirror-cell');
           var key = x + ',' + y;
-          var label = 'Column ' + (x + 1) + ', ' + (y + 1) + ': ' +
-            (st.length ? st.join(', ') : 'empty') +
-            (legalSet && legalSet.has(key) ? ', legal target' : '');
+          var label = t('mirror.cell', { x: x + 1, y: y + 1, contents: st.length ? st.map(blockLabel).join(', ') : t('mirror.empty') }) +
+            (legalSet && legalSet.has(key) ? t('mirror.legal') : '');
           b.setAttribute('aria-label', label);
           b.textContent = top ? ({ wood: '🪵', stone: '🪨', glass: '🧊', plant: '🌿', lamp: '🏮', rock: '⛰' })[top] || '▪' : '·';
           if (st.length > 1) b.setAttribute('data-h', st.length);
@@ -183,7 +181,7 @@
       card.appendChild(el('h3', null, m.name));
       card.appendChild(el('p', 'mini', m.desc));
       card.appendChild(el('p', 'mini', m.meta));
-      var btn = el('button', 'btn primary', m.cta || 'Play');
+      var btn = el('button', 'btn primary', m.cta || t('btn.play'));
       btn.addEventListener('click', function () { hooks.onModeSelect(m.id); });
       card.appendChild(btn);
       list.appendChild(card);
@@ -198,8 +196,7 @@
     var ul = el('ul', 'setup-facts');
     info.facts.forEach(function (f) { ul.appendChild(el('li', null, f)); });
     body.appendChild(ul);
-    body.appendChild(el('p', 'mini', info.ranked ?
-      'This result is ranked and validated by replay.' : 'Unranked — relaxed play, no rating effect.'));
+    body.appendChild(el('p', 'mini', info.ranked ? t('setup.ranked') : t('setup.unranked')));
     if (info.options) {
       info.options.forEach(function (opt) {
         var btn = el('button', 'btn option-btn', opt.label);
@@ -213,9 +210,8 @@
 
   // ---------- journey ----------
   function renderJourney(levels, progress) {
-    $('journey-stars-total').textContent =
-      'Stars: ' + levels.reduce(function (n, l) { return n + (progress.journeyStars[l.id] || 0); }, 0) +
-      ' / ' + levels.length * 3;
+    $('journey-stars-total').textContent = t('journey.stars', {
+      n: levels.reduce(function (n, l) { return n + (progress.journeyStars[l.id] || 0); }, 0), max: levels.length * 3 });
     var grid = $('journey-grid');
     grid.textContent = '';
     levels.forEach(function (l, i) {
@@ -223,10 +219,11 @@
       var unlocked = i === 0 || (progress.journeyStars[levels[i - 1].id] || 0) > 0;
       var btn = el('button', 'level-cell' + (unlocked ? '' : ' locked') + (l.mastery ? ' mastery' : ''));
       btn.disabled = !unlocked;
-      btn.setAttribute('aria-label', 'Stage ' + (i + 1) + ': ' + l.name +
-        (unlocked ? ', ' + stars + ' of 3 stars' : ', locked'));
+      var name = L ? L.cfgName(l) : l.name;
+      btn.setAttribute('aria-label', t('jcell.aria', { n: i + 1, name: name }) +
+        (unlocked ? t('jcell.stars', { s: stars }) : t('jcell.locked')));
       btn.appendChild(el('span', 'level-num', String(i + 1)));
-      btn.appendChild(el('span', 'level-name', l.name));
+      btn.appendChild(el('span', 'level-name', name));
       btn.appendChild(el('span', 'level-stars', unlocked ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : '🔒'));
       if (unlocked) btn.addEventListener('click', function () { hooks.onJourneyLevel(i); });
       grid.appendChild(btn);
@@ -254,7 +251,7 @@
       ach.appendChild(el('li', null, '🏅 ' + a.name + ' — ' + a.desc));
     });
     $('results-compare').textContent = r.compare || '';
-    $('btn-results-next').textContent = r.nextLabel || 'Next';
+    $('btn-results-next').textContent = r.nextLabel || t('btn.next');
     $('btn-results-next').disabled = !r.hasNext;
   }
 
@@ -266,7 +263,9 @@
     settingsSchema.forEach(function (sec) {
       var fs = el('fieldset');
       if (sec.id) fs.id = sec.id;
-      fs.appendChild(el('legend', null, sec.title));
+      var legend = el('legend', null, sec.i18n ? t(sec.i18n) : sec.title);
+      if (sec.i18n) legend.setAttribute('data-i18n', sec.i18n);
+      fs.appendChild(legend);
       sec.items.forEach(function (item) {
         if (item.type === 'custom') { // self-rendering block (e.g. Graphics quality panel)
           var box = el('div');
@@ -275,7 +274,10 @@
           return;
         }
         var label = el('label');
-        label.textContent = item.label + ' ';
+        var name = el('span', null, item.i18n ? t(item.i18n) : item.label);
+        if (item.i18n) name.setAttribute('data-i18n', item.i18n);
+        label.appendChild(name);
+        label.appendChild(document.createTextNode(' '));
         var input;
         if (item.type === 'range') {
           input = el('input');
@@ -284,7 +286,8 @@
         } else if (item.type === 'select') {
           input = el('select');
           item.options.forEach(function (o) {
-            var op = el('option', null, o.label);
+            var op = el('option', null, o.i18n ? t(o.i18n) : o.label);
+            if (o.i18n) op.setAttribute('data-i18n', o.i18n);
             op.value = o.value;
             input.appendChild(op);
           });
@@ -328,14 +331,14 @@
     var stats = el('ul');
     p.stats.forEach(function (s) { stats.appendChild(el('li', null, s)); });
     body.appendChild(stats);
-    body.appendChild(el('h3', null, 'Achievements'));
+    body.appendChild(el('h3', null, t('prof.ach')));
     var ul = el('ul', 'achievements');
     p.achievements.forEach(function (a) {
       ul.appendChild(el('li', a.unlocked ? 'unlocked' : 'locked',
         (a.unlocked ? '🏅 ' : '▫ ') + a.name + ' — ' + a.desc));
     });
     body.appendChild(ul);
-    body.appendChild(el('h3', null, 'Themes'));
+    body.appendChild(el('h3', null, t('prof.themes')));
     var tw = el('div', 'theme-row');
     p.themes.forEach(function (t) {
       var b = el('button', 'btn option-btn' + (t.active ? ' selected' : ''), t.name);
@@ -346,9 +349,9 @@
       tw.appendChild(b);
     });
     body.appendChild(tw);
-    var wipe = el('button', 'btn danger', 'Erase local progress');
+    var wipe = el('button', 'btn danger', t('prof.erase'));
     wipe.addEventListener('click', function () {
-      if (root.confirm('Erase all local progress and settings?')) hooks.onWipe();
+      if (root.confirm(t('prof.confirm'))) hooks.onWipe();
     });
     body.appendChild(el('p'));
     body.appendChild(wipe);
@@ -367,13 +370,13 @@
     body.appendChild(tabs);
     if (data.note) body.appendChild(el('p', 'mini', data.note));
     if (!data.entries.length) {
-      body.appendChild(el('p', null, 'No scores yet — be the first.'));
+      body.appendChild(el('p', null, t('lb.empty')));
       return;
     }
     var table = el('table');
     table.className = 'lb-table';
     var head = el('tr');
-    ['#', 'Player', 'Score', 'Moves time', 'When'].forEach(function (h) {
+    ['#', t('lb.player'), t('lb.score'), t('lb.time'), t('lb.when')].forEach(function (h) {
       head.appendChild(el('th', null, h));
     });
     table.appendChild(head);
@@ -402,7 +405,7 @@
       var card = el('div', 'mode-item');
       card.appendChild(el('h3', null, (done ? '✓ ' : '') + l.title));
       card.appendChild(el('p', 'mini', l.text));
-      var btn = el('button', 'btn primary', done ? 'Replay lesson' : 'Start lesson');
+      var btn = el('button', 'btn primary', done ? t('les.replay') : t('les.start'));
       btn.addEventListener('click', function () { hooks.onLessonSelect(l.id); });
       card.appendChild(btn);
       list.appendChild(card);
@@ -486,6 +489,7 @@
   root.BSUI = {
     init: init,
     showScreen: showScreen, back: back, currentScreen: currentScreen,
+    stack: function () { return screenStack.slice(); },
     toast: toast, announce: announce, caption: caption, message: message,
     setHud: setHud, setGoals: setGoals, setPalette: setPalette, boardMirror: boardMirror,
     renderModes: renderModes, renderSetup: renderSetup, renderJourney: renderJourney,

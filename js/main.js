@@ -18,7 +18,10 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
   const Audio = window.BSAudio;
   const RNG = window.BSRNG;
   const P = window.BSPlatform; // StarHermit adapter (js/platform.js over starhermit-sdk.js)
-  const ACCOUNT = accountStrings(pickLocale(navigator.languages || [navigator.language]));
+  const I18N = window.BLI18n;  // js/i18n.js — one language source (sh-language.js)
+  const t = I18N.t;
+  // Account lines follow the game language (Settings → Language).
+  const acct = () => accountStrings(I18N.lang || pickLocale(navigator.languages || [navigator.language]));
 
   // ---------- persistent doc ----------
   let doc = Store.load();
@@ -34,34 +37,36 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
   }
 
   const sessionId = 's' + Math.random().toString(36).slice(2, 10);
-  let playerName = 'Guest-' + sessionId.slice(1, 5); // offline fallback label
+  let playerName = 'Guest-' + sessionId.slice(1, 5); // offline fallback label (stored with local scores)
+  const guestLabel = () => t('guest', { id: sessionId.slice(1, 5) });
 
   // ---------- platform: StarHermit identity + authenticated /api ----------
   // Launch token, renewal, nicknames, cloud save, settings KV and bindings
   // live in BSPlatform; nothing is requested without a token.
   let signedOutNotice = false;
   const profileFor = P.profileFor;
-  function displayName() { return (P.profile && P.profile.displayName) || playerName; }
+  function displayName() { return (P.profile && P.profile.displayName) || guestLabel(); }
 
   function accountLine() {
-    if (!P.hosted) return signedOutNotice ? ACCOUNT.signedOut : ACCOUNT.offline;
+    const A = acct();
+    if (!P.hosted) return signedOutNotice ? A.signedOut : A.offline;
     const name = P.profile ? P.profile.displayName : '…';
-    const sync = P.sync === 'synced' ? ACCOUNT.synced : P.sync === 'saving' ? ACCOUNT.saving : ACCOUNT.syncOff;
-    return ACCOUNT.playingAs.replace('{name}', name) + ' · ' + sync;
+    const sync = P.sync === 'synced' ? A.synced : P.sync === 'saving' ? A.saving : A.syncOff;
+    return A.playingAs.replace('{name}', name) + ' · ' + sync;
   }
   function refreshAccount() {
     const line = document.getElementById('account-line');
     if (line) line.textContent = accountLine();
     const si = document.getElementById('btn-sign-in'), inv = document.getElementById('btn-invite');
-    si.textContent = ACCOUNT.signIn; si.hidden = !P.canSignIn();
-    inv.textContent = ACCOUNT.invite; inv.hidden = !P.hosted;
+    si.textContent = acct().signIn; si.hidden = !P.canSignIn();
+    inv.textContent = acct().invite; inv.hidden = !P.hosted;
   }
   const showToast = (text) => UI.toast(text);
   async function copyInvite() {
     const link = P.inviteLink();
     if (!link) return;
-    try { await navigator.clipboard.writeText(link); showToast(ACCOUNT.inviteCopied); }
-    catch (e) { showToast(ACCOUNT.inviteFailed + ' ' + link); }
+    try { await navigator.clipboard.writeText(link); showToast(acct().inviteCopied); }
+    catch (e) { showToast(acct().inviteFailed + ' ' + link); }
   }
 
   // Keyboard actions by KeyboardEvent.code (control.* in starhermit.txt);
@@ -79,8 +84,9 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     return null;
   }
   function keyName(action) {
-    const names = { Escape: 'Esc', Space: 'Space', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' };
-    return (keyBindings[action] || []).map(c => names[c] || c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Num ')).join('/');
+    const names = { Escape: t('key.Esc'), Space: t('key.Space'), Enter: t('key.Enter'), ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' };
+    return (keyBindings[action] || []).map(c => names[c] || c.replace(/^Key/, '').replace(/^Digit/, '')
+      .replace(/^NumpadEnter$/, t('key.Num') + ' ' + t('key.Enter')).replace(/^Numpad/, t('key.Num') + ' ')).join('/');
   }
 
   // ---------- platform time (signed in only; standalone uses the local clock) ----------
@@ -179,10 +185,9 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
 
   // ---------- helpers ----------
   function goalLabel(g) {
-    const B = Content.BLOCKS;
-    if (g.kind === 'count') return 'Place ' + (B[g.type] ? B[g.type].label : g.type);
-    if (g.kind === 'height') return 'Tallest column height';
-    return 'Columns of height ' + g.h + '+';
+    if (g.kind === 'count') return t('goal.count', { block: I18N.blockLabel(g.type) });
+    if (g.kind === 'height') return t('goal.height');
+    return t('goal.columns', { h: g.h });
   }
   function goalsView(state) {
     return state.cfg.goals.map((g, i) => {
@@ -191,7 +196,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     });
   }
   function movesText(state) {
-    return state.cfg.moveLimit ? ('Moves ' + state.moves + '/' + state.cfg.moveLimit) : ('Moves ' + state.moves);
+    return state.cfg.moveLimit ? t('moves.limit', { n: state.moves, max: state.cfg.moveLimit }) : t('moves', { n: state.moves });
   }
   function fmtClock(ms) {
     const s = Math.floor(ms / 1000);
@@ -216,7 +221,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     if (!s) return;
     UI.setHud({
       visible: round.phase === 'active' || round.phase === 'paused',
-      modeName: s.cfg.name || s.cfg.id,
+      modeName: I18N.cfgName(s.cfg),
       timerText: fmtClock(s.elapsedMs),
       score: Rules.currentScore(s),
       movesText: movesText(s),
@@ -275,18 +280,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
   }
 
   function invalidText(reason) {
-    return {
-      'game-ended': 'The round is over.',
-      'bad-cell': 'That spot is outside the plot.',
-      'block-not-allowed': 'That block is not available here.',
-      'no-resource': 'None left — gather more first.',
-      'column-full': 'That column is already full.',
-      'needs-support': 'Needs a solid block beneath it.',
-      'topper-blocks-stacking': 'Nothing stacks on a topper.',
-      'rock-is-immovable': 'Rock is immovable terrain.',
-      'nothing-to-remove': 'Nothing to remove there.',
-      'remove-disabled': 'The remove tool is disabled in this ruleset.'
-    }[reason] || 'Not allowed.';
+    return t('inv.' + reason, null, t('inv.default'));
   }
 
   function processEvents(events) {
@@ -296,8 +290,8 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
           Audio.play('gather');
           haptic(15);
           progress.stats.gathered++;
-          const gains = Object.entries(e.gains).map(([t, n]) => n + ' ' + Content.BLOCKS[t].label).join(', ');
-          UI.message('Gathered ' + gains);
+          const gains = Object.entries(e.gains).map(([b, n]) => n + ' ' + I18N.blockLabel(b)).join(', ');
+          UI.message(t('msg.gathered', { list: gains }));
           break;
         }
         case 'place':
@@ -312,11 +306,11 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
           Audio.play('goal');
           haptic([20, 40, 20]);
           const g = e.goal;
-          UI.message('Goal complete: ' + goalLabel(g) + '!');
-          UI.announce('Goal complete: ' + goalLabel(g));
+          UI.message(t('msg.goal', { g: goalLabel(g) }));
+          UI.announce(t('an.goal', { g: goalLabel(g) }));
           break;
         }
-        case 'wave': Audio.play('wave'); UI.message('Wave ' + e.wave + ' — new goals!'); break;
+        case 'wave': Audio.play('wave'); UI.message(t('msg.wave', { n: e.wave })); break;
         case 'goals-new': break;
         case 'win': Audio.play('win'); break;
         case 'lose': Audio.play('lose'); break;
@@ -351,10 +345,12 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     startWeather(cfg.seed);
     UI.showScreen('game', true); // no DOM screen: HUD-only playfield
     Audio.play('round-start');
-    if (cfg.intro) UI.message(cfg.intro, true);
+    round.introShown = !!cfg.intro; // sticky intro line, re-rendered on a language change
+    round.introText = cfg.intro ? I18N.cfgIntro(cfg) : null;
+    if (cfg.intro) UI.message(round.introText, true);
     funnel('start-' + mode);
     refreshUI();
-    UI.announce('Round started. ' + (cfg.intro || cfg.name));
+    UI.announce(t('an.roundStart', { x: I18N.cfgIntro(cfg) || I18N.cfgName(cfg) }));
     saveRoundSnapshot();
   }
 
@@ -417,46 +413,45 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
       progress.achievements[key] = Date.now();
       persist(); // mid-round unlocks survive a closed tab
       Audio.play('star');
-      UI.announce('Achievement unlocked');
+      UI.announce(t('an.achievement'));
     }
   }
-  function showResults(achievements) {
+  let lastResults = null; // re-rendered on a language change
+  function showResults(achievements, rerender) {
+    lastResults = achievements;
     const s = round.state;
     const won = s.terminal && s.terminal.won;
     const rows = [
-      ['Blocks placed', '+' + s.score.place],
-      ['Goals completed', '+' + s.score.goal],
-      ['Settlement bonus', '+' + s.score.win],
-      ['Stock remaining', '+' + s.score.stock],
-      ['Under par', '+' + s.score.par],
-      ['Removed blocks', '−' + s.score.removePenalty],
-      ['Waves', s.wave > 1 ? String(s.wave - 1) : '—'],
-      ['Total', String(s.score.total)]
+      [t('r.placed'), '+' + s.score.place],
+      [t('r.goals'), '+' + s.score.goal],
+      [t('r.bonus'), '+' + s.score.win],
+      [t('r.stock'), '+' + s.score.stock],
+      [t('r.par'), '+' + s.score.par],
+      [t('r.removed'), '−' + s.score.removePenalty],
+      [t('r.waves'), s.wave > 1 ? String(s.wave - 1) : '—'],
+      [t('r.total'), String(s.score.total)]
     ];
     let stars = 0;
     if (round.mode === 'journey' && won) stars = progress.journeyStars[s.cfg.id] || 1;
     const hasNext = round.mode === 'journey' && won && round.levelIndex + 1 < Content.JOURNEY.length;
     UI.renderResults({
-      title: won ? 'Settlement complete!' : 'Round over',
+      title: won ? t('r.won') : t('results.over'),
       headline: won
-        ? s.cfg.name + ' — every goal met in ' + s.moves + ' moves.'
-        : terminalReasonText(s.terminal ? s.terminal.reason : '') + ' — final score ' + s.score.total + '.',
-      rows, stars, achievements,
-      compare: s.terminal && s.terminal.won ? 'Time ' + fmtClock(s.elapsedMs) + ' · par ' +
-        (s.cfg.par ? s.cfg.par.moves : '—') + ' moves' : '',
-      hasNext, nextLabel: hasNext ? 'Next: ' + Content.JOURNEY[round.levelIndex + 1].name : 'Next'
+        ? t('r.wonHead', { name: I18N.cfgName(s.cfg), n: s.moves })
+        : t('r.lostHead', { reason: terminalReasonText(s.terminal ? s.terminal.reason : ''), n: s.score.total }),
+      rows, stars, achievements: achievements.map(I18N.achievementView),
+      compare: s.terminal && s.terminal.won ? t('r.compare', { t: fmtClock(s.elapsedMs), p: s.cfg.par ? s.cfg.par.moves : '—' }) : '',
+      hasNext, nextLabel: hasNext ? t('r.nextName', { name: I18N.cfgName(Content.JOURNEY[round.levelIndex + 1]) }) : t('btn.next')
     });
+    if (rerender) return;
     const art = document.getElementById('results-art');
     if (art) { art.hidden = false; art.src = won ? 'assets/results-win.webp' : 'assets/results-lose.webp'; }
     UI.showScreen('results');
-    UI.announce(won ? 'Stage complete. Score ' + s.score.total : 'Round over. Score ' + s.score.total);
+    UI.announce(won ? t('an.stageDone', { n: s.score.total }) : t('an.roundOver', { n: s.score.total }));
   }
 
   function terminalReasonText(r) {
-    return {
-      'goals-met': 'All goals met', 'move-limit': 'Out of moves',
-      'landlocked': 'The plot is sealed', 'resigned': 'Resigned'
-    }[r] || r;
+    return t('term.' + r, null, r);
   }
 
   // ---------- score submission ----------
@@ -475,13 +470,26 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
   function postToLeaderboard(total) {
     const line = document.getElementById('results-lb');
     if (!line) return;
+    const seq = ++lbSeq;
+    lbResult = null;
     if (!P || !P.hosted) { line.hidden = true; return; }
     line.hidden = false;
-    line.textContent = 'Posting score to the leaderboard…';
+    lbResult = { pending: true };
+    renderLbLine();
     P.submitScore(total).then(r => {
-      line.textContent = !r.posted ? 'Score not posted to the leaderboard.'
-        : r.rank ? 'Leaderboard rank: #' + r.rank : 'Score posted to the leaderboard.';
+      if (seq !== lbSeq) return;
+      lbResult = r;
+      renderLbLine();
     });
+  }
+  // Results-line text from the stored outcome: a language change re-renders it, never reposts.
+  let lbSeq = 0, lbResult = null;
+  function renderLbLine() {
+    const line = document.getElementById('results-lb');
+    const r = lbResult;
+    if (!line || !r) return;
+    line.textContent = r.pending ? t('lb.posting') : !r.posted ? t('lb.notPosted')
+      : r.rank ? t('lb.rank', { rank: r.rank }) : t('lb.posted');
   }
 
   function submitScore() {
@@ -554,8 +562,9 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     UI.showScreen('game', true);
     Audio.play('round-start');
     refreshUI();
-    UI.toast('Round restored');
-    UI.announce('Round restored. ' + movesText(sess.state));
+    round.introShown = false;
+    UI.toast(t('toast.restored'));
+    UI.announce(t('an.restored', { moves: movesText(sess.state) }));
     return true;
   }
 
@@ -567,7 +576,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
       const key = x + ',' + y;
       if (round.pendingCell !== key) {
         round.pendingCell = key;
-        UI.message('Tap again to confirm');
+        UI.message(t('msg.confirm'));
         showGhost(x, y);
         return;
       }
@@ -579,7 +588,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
   function commitCell(x, y) {
     if (round.removeMode) execute({ type: 'remove', x, y });
     else if (round.selectedBlock) execute({ type: 'place', x, y, block: round.selectedBlock });
-    else UI.message('Pick a block from the tray first.');
+    else UI.message(t('msg.pickBlock'));
   }
 
   function showGhost(x, y) {
@@ -618,11 +627,11 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
   }
   function moveFocus(d) {
     if (!round.focusTargets.length) rebuildFocusTargets();
-    if (!round.focusTargets.length) { UI.message('No legal targets right now — try Gather.'); return; }
+    if (!round.focusTargets.length) { UI.message(t('msg.noTargets')); return; }
     round.focusIndex = (round.focusIndex + d + round.focusTargets.length) % round.focusTargets.length;
-    const t = round.focusTargets[round.focusIndex];
-    showGhost(t.x, t.y);
-    UI.announce('Target column ' + (t.x + 1) + ', ' + (t.y + 1));
+    const tg = round.focusTargets[round.focusIndex];
+    showGhost(tg.x, tg.y);
+    UI.announce(t('an.target', { x: tg.x + 1, y: tg.y + 1 }));
   }
 
   document.addEventListener('keydown', (ev) => {
@@ -637,8 +646,8 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     else if (k === 'place') {
       ev.preventDefault();
       if (round.focusIndex >= 0 && round.focusTargets[round.focusIndex]) {
-        const t = round.focusTargets[round.focusIndex];
-        commitCell(t.x, t.y);
+        const tg = round.focusTargets[round.focusIndex];
+        commitCell(tg.x, tg.y);
         rebuildFocusTargets();
       }
     }
@@ -648,7 +657,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     else if (k === 'hint') doHint();
     else if (k === 'camera') { if (renderer) renderer.resetCamera(); }
     else if (k === 'topDown') { if (renderer) renderer.topDownCamera(); }
-    else if (k === 'skip') { if (renderer) renderer.skipAnimations(); UI.message('Animations skipped'); }
+    else if (k === 'skip') { if (renderer) renderer.skipAnimations(); UI.message(t('msg.skipped')); }
     else if (k && /^block[1-5]$/.test(k)) {
       const i = +k.slice(5) - 1;
       const blocks = round.state.cfg.blocks;
@@ -666,8 +675,8 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     const edge = (name, v) => { const was = padPrev[name]; padPrev[name] = v; return v && !was; };
     if (edge('a', pressed(0))) {
       if (round.focusIndex >= 0) {
-        const t = round.focusTargets[round.focusIndex];
-        commitCell(t.x, t.y); rebuildFocusTargets();
+        const tg = round.focusTargets[round.focusIndex];
+        commitCell(tg.x, tg.y); rebuildFocusTargets();
       }
     }
     if (edge('b', pressed(1))) { round.removeMode = false; refreshUI(); }
@@ -685,7 +694,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     Audio.play('select');
     rebuildFocusTargets();
     refreshUI();
-    UI.announce(Content.BLOCKS[b].label + ' selected');
+    UI.announce(t('an.selected', { b: I18N.blockLabel(b) }));
   }
   function toggleRemove() {
     if (round.state.cfg.mechanics && round.state.cfg.mechanics.remove === false) {
@@ -695,13 +704,13 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     Audio.play(round.removeMode ? 'select' : 'deselect');
     rebuildFocusTargets();
     refreshUI();
-    UI.announce(round.removeMode ? 'Remove tool active' : 'Remove tool off');
+    UI.announce(round.removeMode ? t('an.removeOn') : t('an.removeOff'));
   }
   function doUndo() {
     if (!round.session) return;
     if (round.phase !== 'active') return;
     if (!Session.canUndo(round.session)) {
-      UI.message(round.state.cfg.mechanics.undo === false ? 'Undo is disabled in this ruleset.' : 'Nothing to undo.');
+      UI.message(round.state.cfg.mechanics.undo === false ? t('msg.undoOff') : t('msg.noUndo'));
       Audio.play('invalid');
       return;
     }
@@ -717,14 +726,16 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
   function doHint() {
     if (!round.state || round.phase !== 'active') return;
     if (round.state.cfg.mechanics && round.state.cfg.mechanics.hint === false) {
-      UI.message('Hints are disabled in this ruleset.'); Audio.play('invalid'); return;
+      UI.message(t('msg.hintOff')); Audio.play('invalid'); return;
     }
     const h = Rules.hint(round.state);
     Audio.play('hint');
-    if (!h) { UI.message('No hint available.'); return; }
-    if (h.type === 'gather') UI.message('Hint: gather resources — you need ' + (h.why || 'supplies').replace('need-', '') + '.');
-    else {
-      UI.message('Hint: place ' + Content.BLOCKS[h.block].label + ' on column ' + (h.x + 1) + ', ' + (h.y + 1) + '.');
+    if (!h) { UI.message(t('msg.noHint')); return; }
+    if (h.type === 'gather') {
+      const need = /^need-/.test(h.why || '') ? h.why.slice(5) : null;
+      UI.message(t('hint.gather', { what: need ? I18N.blockLabel(need) : t('hint.supplies') }));
+    } else {
+      UI.message(t('hint.place', { b: I18N.blockLabel(h.block), x: h.x + 1, y: h.y + 1 }));
       selectBlock(h.block);
       if (renderer) showGhost(h.x, h.y);
     }
@@ -774,7 +785,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     if (!lesson) return;
     startRound(lesson.cfg, 'learn', -1);
     round.lesson = lesson;
-    UI.lessonBanner(lesson, '0/' + lesson.goal.count);
+    UI.lessonBanner(I18N.lessonView(lesson), '0/' + lesson.goal.count);
     UI.message('');
     funnel('tutorial-' + id);
   }
@@ -786,15 +797,15 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
       if (e.type === 'win' && l.goal.event !== 'win') { /* stage win still counts */ }
     });
     const n = round.lessonEvents[l.goal.event] || 0;
-    UI.lessonBanner(l, Math.min(n, l.goal.count) + '/' + l.goal.count);
+    UI.lessonBanner(I18N.lessonView(l), Math.min(n, l.goal.count) + '/' + l.goal.count);
     if (n >= l.goal.count || (l.goal.event === 'win' && round.state.terminal && round.state.terminal.won)) {
       progress.tutorialDone[l.id] = true;
       persist();
       funnel('tutorial-done-' + l.id);
       UI.lessonBanner(null);
       Audio.play('lesson-complete');
-      UI.toast('Lesson complete: ' + l.title);
-      UI.announce('Lesson complete: ' + l.title);
+      UI.toast(t('toast.lesson', { t: I18N.lessonView(l).title }));
+      UI.announce(t('toast.lesson', { t: I18N.lessonView(l).title }));
       round.lesson = null;
       if (!round.state.terminal) {
         // keep playing or leave; lessons end cleanly here
@@ -826,7 +837,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     if (renderer) renderer.showShowcase(); // slowly turning sample homestead behind the menu
     const snap = loadRoundSnapshot();
     const playBtn = document.getElementById('btn-play');
-    playBtn.textContent = snap ? 'Resume round' : 'Play';
+    playBtn.textContent = snap ? t('btn.resumeRound') : t('btn.play');
     updateJourneyMini();
   }
 
@@ -842,23 +853,19 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     const h = Math.floor(left / 3600000), m = Math.floor((left % 3600000) / 60000);
     const date = Content.utcDateString(now);
     const done = progress.dailiesDone[date];
-    UI.setDailyCountdown((done ? '✓ ' + done + ' · ' : '') + 'new in ' + h + 'h ' + m + 'm');
+    UI.setDailyCountdown((done ? t('daily.done', { n: done }) : '') + t('daily.newIn', { h, m }));
   }
 
-  function showModes() {
+  function showModes(rerender) {
+    const m = (id, extra) => Object.assign({ id, name: t('mode.' + id), desc: t('mode.' + id + '.d'), meta: t('mode.' + id + '.m', { n: Object.keys(progress.journeyStars).length }) }, extra || {});
     UI.renderModes([
-      { id: 'learn', name: 'Learn', desc: 'Interactive lessons — one rule at a time.', meta: '6 short lessons · unranked', cta: 'Start learning' },
-      { id: 'journey', name: 'Journey', desc: '40 authored stages across the valley.', meta: Object.keys(progress.journeyStars).length + '/40 stages · ranked per stage' },
-      { id: 'daily', name: 'Daily challenge', desc: 'One shared seed for everyone, per UTC day.', meta: 'Ranked · validated by replay' },
-      { id: 'practice', name: 'Practice', desc: 'Relaxed play with undo and hints.', meta: '3 difficulties · unranked' },
-      { id: 'challenge', name: 'Challenges', desc: 'Constrained goals: move limits, locked tools, rough plots.', meta: '6 challenges · ranked per challenge' },
-      { id: 'score', name: 'Score chase', desc: 'Endless waves of goals until the plot seals.', meta: 'Global board · validated' }
+      m('learn', { cta: t('mode.learn.cta') }), m('journey'), m('daily'), m('practice'), m('challenge'), m('score')
     ]);
-    UI.showScreen('modes');
+    if (!rerender) UI.showScreen('modes');
   }
 
   let pendingMode = null;
-  function selectMode(id) {
+  function selectMode(id, rerender) {
     pendingMode = id;
     if (id === 'learn') { showLessons(); return; }
     if (id === 'journey') { showJourney(); return; }
@@ -866,58 +873,59 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
       const date = Content.utcDateString(nowMs());
       const cfg = Content.dailyConfig(date);
       showSetup(cfg, 'daily', [
-        'Shared seed for ' + date, 'Expected 5–10 minutes',
-        cfg.moveLimit ? 'Move limit: ' + cfg.moveLimit : 'No move limit',
-        'Undo and hints allowed'
-      ], true);
+        t('f.dailySeed', { date }), t('f.expected'),
+        cfg.moveLimit ? t('f.moveLimit', { n: cfg.moveLimit }) : t('f.noLimit'),
+        t('f.undoHints')
+      ], true, null, rerender);
       return;
     }
     if (id === 'practice') {
       const p = Content.PRACTICE.find(x => x.id === round.practiceId) || Content.PRACTICE[0];
       showSetup(p, 'practice', [
-        'Difficulty: ' + p.name, 'Restart and undo allowed', 'No effect on ratings'
+        t('f.difficulty', { d: I18N.cfgName(p) }), t('f.restartUndo'), t('f.noRating')
       ], false, Content.PRACTICE.map(x => ({
-        label: x.name, value: x.id, active: x.id === p.id
-      })));
+        label: I18N.cfgName(x), value: x.id, active: x.id === p.id
+      })), rerender);
       return;
     }
     if (id === 'challenge') {
       const next = Content.CHALLENGES.find(c => !progress.challengeBest[c.id]) || Content.CHALLENGES[0];
-      showSetup(next, 'challenge', challengeFacts(next), true,
-        Content.CHALLENGES.map(c => ({
-          label: c.name + (progress.challengeBest[c.id] ? ' ✓' : ''), value: c.id,
-          active: c.id === next.id
-        })));
+      showChallengeSetup(next);
       return;
     }
     if (id === 'score') {
       showSetup(Content.SCORE_CHASE, 'score', [
-        'Endless: goals regenerate in harder waves',
-        'No undo, no hints — every block counts',
-        'Best: ' + progress.endlessBest
-      ], true);
+        t('f.endless'), t('f.noAssist'), t('f.best', { n: progress.endlessBest })
+      ], true, null, rerender);
       return;
     }
   }
 
   function challengeFacts(c) {
     const f = [];
-    if (c.moveLimit) f.push('Move limit: ' + c.moveLimit);
-    if (c.mechanics.remove === false) f.push('Remove tool locked');
-    if (c.mechanics.undo === false) f.push('No undo');
-    if (c.mechanics.hint === false) f.push('No hints');
-    if (c.rocks) f.push(c.rocks + ' boulders on the plot');
-    f.push('Expected 5–10 minutes');
+    if (c.moveLimit) f.push(t('f.moveLimit', { n: c.moveLimit }));
+    if (c.mechanics.remove === false) f.push(t('f.removeLocked'));
+    if (c.mechanics.undo === false) f.push(t('f.noUndo'));
+    if (c.mechanics.hint === false) f.push(t('f.noHints'));
+    if (c.rocks) f.push(t('f.rocks', { n: c.rocks }));
+    f.push(t('f.expected'));
     return f;
+  }
+  function showChallengeSetup(c, rerender) {
+    showSetup(c, 'challenge', challengeFacts(c), true,
+      Content.CHALLENGES.map(x => ({
+        label: I18N.cfgName(x) + (progress.challengeBest[x.id] ? ' ✓' : ''), value: x.id,
+        active: x.id === c.id
+      })), rerender);
   }
 
   let setupCtx = null;
-  function showSetup(cfg, mode, facts, ranked, options) {
+  function showSetup(cfg, mode, facts, ranked, options, rerender) {
     setupCtx = { cfg, mode };
     UI.renderSetup({
-      name: cfg.name, intro: cfg.intro, facts, ranked, options
+      name: I18N.cfgName(cfg), intro: I18N.cfgIntro(cfg), facts, ranked, options
     });
-    UI.showScreen('setup');
+    if (!rerender) UI.showScreen('setup');
   }
 
   function startSetupRound() {
@@ -925,98 +933,96 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     startRound(setupCtx.cfg, setupCtx.mode, -1);
   }
 
-  function showJourney() {
+  function showJourney(rerender) {
     UI.renderJourney(Content.JOURNEY, progress);
-    UI.showScreen('journey');
+    if (!rerender) UI.showScreen('journey');
   }
 
-  function showLessons() {
-    UI.renderLessons(Content.tutorialLessons(), progress);
-    UI.showScreen('learn');
+  function showLessons(rerender) {
+    UI.renderLessons(Content.tutorialLessons().map(I18N.lessonView), progress);
+    if (!rerender) UI.showScreen('learn');
   }
 
-  function showProfile() {
+  function showProfile(rerender) {
     const stars = Object.values(progress.journeyStars).reduce((a, b) => a + b, 0);
     const themes = Content.THEMES.map(t => ({
-      id: t.id, name: t.name, unlockStars: t.unlockStars,
+      id: t.id, name: I18N.themeName(t), unlockStars: t.unlockStars,
       unlocked: stars >= t.unlockStars, active: settings.theme === t.id
     }));
     UI.renderProfile({
       name: displayName(),
-      subtitle: P.userId ? 'Signed in as ' + displayName() + ' — scores are kept on this device.'
-        : 'Local guest profile — fully playable offline.',
+      subtitle: P.userId ? t('prof.signedIn', { name: displayName() }) : t('prof.guest'),
       stats: [
-        'Rounds played: ' + progress.stats.rounds,
-        'Settlements completed: ' + progress.stats.wins,
-        'Blocks placed: ' + progress.stats.placed,
-        'Tallest column: ' + progress.stats.bestHeight,
-        'Journey stars: ' + stars,
-        'Best endless score: ' + progress.endlessBest,
-        'Dailies completed: ' + Object.keys(progress.dailiesDone).length,
-        'Time played: ' + fmtClock(progress.stats.playMs)
+        t('st.rounds', { n: progress.stats.rounds }),
+        t('st.wins', { n: progress.stats.wins }),
+        t('st.placed', { n: progress.stats.placed }),
+        t('st.height', { n: progress.stats.bestHeight }),
+        t('st.stars', { n: stars }),
+        t('st.endless', { n: progress.endlessBest }),
+        t('st.dailies', { n: Object.keys(progress.dailiesDone).length }),
+        t('st.time', { t: fmtClock(progress.stats.playMs) })
       ],
-      achievements: Content.ACHIEVEMENTS.map(a => ({
-        key: a.key, name: a.name, desc: a.desc, unlocked: !!progress.achievements[a.key]
-      })),
+      achievements: Content.ACHIEVEMENTS.map(a => Object.assign(I18N.achievementView(a), { unlocked: !!progress.achievements[a.key] })),
       themes
     });
-    UI.showScreen('profile');
+    if (!rerender) UI.showScreen('profile');
   }
 
   let lbActive = 'global';
-  async function showLeaderboard() {
+  async function showLeaderboard(rerender) {
     const date = Content.utcDateString(nowMs());
     const boards = [
-      { id: 'global', label: 'Endless (global)' },
-      { id: 'daily:' + date, label: 'Today’s daily' }
+      { id: 'global', label: t('lb.global') },
+      { id: 'daily:' + date, label: t('lb.today') }
     ];
     let entries = Store.sortEntries(Store.loadBoards().entries.filter(e => e.board === lbActive));
-    const note = 'Scores recorded on this device. Ties: fewer invalid actions, then faster time.';
+    const note = t('lb.note');
     // Resolve account ids to profile nicknames; mark the signed-in row.
     entries = await Promise.all(entries.map(async e => {
       if (!e.player) return e;
       const name = await profileFor(e.player);
       return Object.assign({}, e, {
-        name: e.player === P.userId ? 'You (' + name + ')' : name
+        name: e.player === P.userId ? t('lb.you', { name }) : name
       });
     }));
     UI.renderLeaderboard({
       boards, active: lbActive, note,
       entries: entries.map(e => ({
         name: e.name, score: e.score, durationMs: e.durationMs,
-        when: e.at ? new Date(e.at).toLocaleDateString() : '—'
+        when: e.at ? new Date(e.at).toLocaleDateString(I18N.lang) : '—'
       }))
     });
-    UI.showScreen('leaderboard');
+    if (!rerender) UI.showScreen('leaderboard');
   }
 
-  function showHelp() {
+  function showHelp(rerender) {
+    const card = (id, keys) => ({ title: t('h.' + id), text: t('h.' + id + '.b'), keys: keys || null });
     UI.renderHelp([
-      { title: 'Goal', text: 'Gather resources and place blocks to complete every build goal. Rocks are immovable terrain; build around or on them.', keys: null },
-      { title: 'Gather', text: 'Collect timber, stone and more from the valley. Gathering spends a move when the ruleset has a move limit.', keys: keyName('gather') + ' or the ⛏ button' },
-      { title: 'Place', text: 'Select a block in the tray, then choose a glowing tile. Blocks stack into columns.', keys: keyName('block1') + '–' + keyName('block5') + ' select · click/tap or ' + keyName('place') + ' places' },
-      { title: 'Glass needs support', text: 'Glass, lamps and plants cannot rest on bare soil — they need a solid block beneath them.' },
-      { title: 'Toppers', text: 'Lamps and plants crown a stack: nothing can be built above them.' },
-      { title: 'Remove & undo', text: 'Remove takes back the top block of a column for a small point penalty. Undo rewinds your last action where the ruleset allows it.', keys: keyName('remove') + ' remove tool · ' + keyName('undo') + ' undo' },
-      { title: 'Hints', text: 'Hints use the same legal-action rules as play — they never cheat.', keys: keyName('hint') },
-      { title: 'Camera', text: 'Drag to orbit, scroll to zoom.', keys: keyName('camera') + ' resets the view · ' + keyName('topDown') + ' top-down' },
-      { title: 'Pause', text: 'Backgrounding the tab pauses solo play automatically.', keys: keyName('pause') + ' or ' + keyName('back') }
+      card('goal'),
+      card('gather', t('h.gather.k', { k: keyName('gather') })),
+      card('place', t('h.place.k', { a: keyName('block1'), b: keyName('block5'), p: keyName('place') })),
+      card('support'),
+      card('toppers'),
+      card('remove', t('h.remove.k', { r: keyName('remove'), u: keyName('undo') })),
+      card('hints', keyName('hint')),
+      card('camera', t('h.camera.k', { c: keyName('camera'), t: keyName('topDown') })),
+      card('pause', t('h.pause.k', { p: keyName('pause'), b: keyName('back') }))
     ]);
-    UI.showScreen('help');
+    if (!rerender) UI.showScreen('help');
   }
 
   // ---------- settings ----------
   UI.defineSettings([
-    { title: 'Audio', items: [
-      { key: 'music', label: 'Music', type: 'range' },
-      { key: 'effects', label: 'Effects', type: 'range' },
-      { key: 'ambience', label: 'Ambience', type: 'range' },
-      { key: 'voice', label: 'Voice cues', type: 'range' },
-      { key: 'muted', label: 'Mute all', type: 'checkbox' },
-      { key: 'captions', label: 'Captions for sounds', type: 'checkbox' }
+    { i18n: 'set.audio', items: [
+      { key: 'music', i18n: 'set.music', type: 'range' },
+      { key: 'effects', i18n: 'set.effects', type: 'range' },
+      { key: 'ambience', i18n: 'set.ambience', type: 'range' },
+      { key: 'voice', i18n: 'set.voice', type: 'range' },
+      { key: 'muted', i18n: 'set.muted', type: 'checkbox' },
+      { key: 'captions', i18n: 'set.captions', type: 'checkbox' }
     ] },
-    { title: 'Graphics', id: 'settings-graphics', items: [
-      { type: 'custom', render: (box) => mountGraphicsPanel(box, {
+    { i18n: 'set.graphics', id: 'settings-graphics', items: [
+      { type: 'custom', render: (box) => gfxPanel = mountGraphicsPanel(box, {
         get: () => settings.gfx,
         set: (next) => {
           settings.gfx = next;
@@ -1026,20 +1032,21 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
         },
         info: () => renderer ? renderer.graphicsInfo() : null
       }) },
-      { key: 'reducedMotion', label: 'Reduced motion', type: 'checkbox' },
-      { key: 'highContrast', label: 'High contrast', type: 'checkbox' },
-      { key: 'colorPalette', label: 'Color palette', type: 'select', options: [
-        { value: 'standard', label: 'Standard' }, { value: 'high-visibility', label: 'High visibility' }
+      { key: 'reducedMotion', i18n: 'set.reducedMotion', type: 'checkbox' },
+      { key: 'highContrast', i18n: 'set.highContrast', type: 'checkbox' },
+      { key: 'colorPalette', i18n: 'set.colorPalette', type: 'select', options: [
+        { value: 'standard', i18n: 'pal.standard' }, { value: 'high-visibility', i18n: 'pal.high-visibility' }
       ] }
     ] },
-    { title: 'Controls & access', items: [
-      { key: 'largeText', label: 'Larger text', type: 'checkbox' },
-      { key: 'leftHanded', label: 'Left-handed layout', type: 'checkbox' },
-      { key: 'haptics', label: 'Haptics (vibration)', type: 'checkbox' },
-      { key: 'boardMirror', label: 'Always show text board', type: 'checkbox' },
-      { key: 'confirmMoves', label: 'Confirm moves (timing assistance)', type: 'checkbox' }
+    { i18n: 'set.controls', items: [
+      { key: 'largeText', i18n: 'set.largeText', type: 'checkbox' },
+      { key: 'leftHanded', i18n: 'set.leftHanded', type: 'checkbox' },
+      { key: 'haptics', i18n: 'set.haptics', type: 'checkbox' },
+      { key: 'boardMirror', i18n: 'set.boardMirror', type: 'checkbox' },
+      { key: 'confirmMoves', i18n: 'set.confirmMoves', type: 'checkbox' }
     ] }
   ]);
+  let gfxPanel = null; // { sync, relabel } of the mounted Graphics panel
 
   function onSettingChange(key, value) {
     settings[key] = value;
@@ -1105,7 +1112,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     onRemoveToggle: () => toggleRemove(),
     onUndo: () => doUndo(),
     onHint: () => doHint(),
-    onSkip: () => { if (renderer) renderer.skipAnimations(); UI.message('Animations skipped'); },
+    onSkip: () => { if (renderer) renderer.skipAnimations(); UI.message(t('msg.skipped')); },
     onCamera: () => { if (renderer) renderer.resetCamera(); },
     onTopDown: () => { if (renderer) renderer.topDownCamera(); },
     onStartRound: () => startSetupRound(),
@@ -1129,11 +1136,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
         selectMode('practice');
       } else if (setupCtx.mode === 'challenge') {
         const c = Content.CHALLENGES.find(x => x.id === value);
-        if (c) showSetup(c, 'challenge', challengeFacts(c), true,
-          Content.CHALLENGES.map(x => ({
-            label: x.name + (progress.challengeBest[x.id] ? ' ✓' : ''), value: x.id,
-            active: x.id === c.id
-          })));
+        if (c) showChallengeSetup(c);
       }
     },
     onThemeSelect: (id) => {
@@ -1142,7 +1145,7 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
       persist();
       applyVisualSettings();
       showProfile();
-      UI.toast('Theme applied: ' + themeById(id).name);
+      UI.toast(t('toast.theme', { name: I18N.themeName(themeById(id)) }));
     },
     onWipe: () => {
       doc = Store.fresh();
@@ -1151,10 +1154,50 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
       clearRoundSnapshot();
       applyVisualSettings();
       showTitle();
-      UI.toast('Local progress erased');
+      UI.toast(t('toast.erased'));
     },
     onBoardSelect: (id) => { lbActive = id; showLeaderboard(); }
   });
+
+  // ---------- language (Settings → Language / StarHermit preferred language) ----------
+  // Re-render every visible string in place: the open screen and any screen under an
+  // overlay, the HUD, goals, tray, lesson banner and account lines. Round state, focus,
+  // the open Settings panel and the posted leaderboard result are untouched.
+  function onLanguageChange() {
+    if (round.phase === 'boot') return;
+    refreshAccount();
+    updateJourneyMini();
+    updateDailyCountdown();
+    const snap = loadRoundSnapshot();
+    document.getElementById('btn-play').textContent = snap ? t('btn.resumeRound') : t('btn.play');
+    if (gfxPanel && gfxPanel.relabel && document.contains(document.getElementById('gfx-preset'))) gfxPanel.relabel();
+    const stack = UI.stack ? UI.stack() : [UI.currentScreen()];
+    const open = (name) => stack.indexOf(name) >= 0;
+    if (open('modes')) showModes(true);
+    if (open('setup') && setupCtx) {
+      if (setupCtx.mode === 'challenge') showChallengeSetup(setupCtx.cfg, true);
+      else selectMode(setupCtx.mode, true);
+    }
+    if (open('journey')) showJourney(true);
+    if (open('learn')) showLessons(true);
+    if (open('profile')) showProfile(true);
+    if (open('leaderboard')) showLeaderboard(true);
+    if (open('help')) showHelp(true);
+    if (open('results') && lastResults && round.state) { showResults(lastResults, true); renderLbLine(); }
+    if (round.state && (round.phase === 'active' || round.phase === 'paused')) {
+      refreshUI();
+      if (round.lesson) {
+        const l = round.lesson, n = round.lessonEvents[l.goal.event] || 0;
+        UI.lessonBanner(I18N.lessonView(l), Math.min(n, l.goal.count) + '/' + l.goal.count);
+      }
+      const msg = document.getElementById('hud-message');
+      if (round.introText && msg && msg.textContent === round.introText) {
+        round.introText = I18N.cfgIntro(round.state.cfg);
+        msg.textContent = round.introText;
+      }
+    }
+  }
+  document.addEventListener('bl-language', onLanguageChange);
 
   // ---------- elapsed ticker ----------
   setInterval(() => {
@@ -1182,6 +1225,17 @@ import { mountGraphicsPanel, accountStrings, pickLocale } from './gfx-panel.js';
     const remoteRaw = await P.init({
       onProfile: refreshAccount,
       onSync: refreshAccount,
+      // Another device saved first: merge its copy into this one (better records win,
+      // this device's settings and the round in progress stay) and save the result.
+      onConflict: (raw) => {
+        const remote = raw ? Store.loadRaw(raw) : null;
+        if (!remote) return;
+        doc = Store.mergeDocs(remote, { v: doc.v, settings, progress });
+        settings = doc.settings; progress = doc.progress;
+        progress.stats.funnel = progress.stats.funnel || {};
+        persist();
+        if (round.phase === 'title') { updateJourneyMini(); updateDailyCountdown(); }
+      },
       onAuth: (a) => { if (!a.signedIn) signedOutNotice = true; refreshAccount(); }
     }).catch(() => null);
     refreshAccount();

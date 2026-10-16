@@ -6,6 +6,12 @@ import vm from 'node:vm';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const S = require('../js/store.js');
+const I18N = require('../js/i18n.js');
+const Content = require('../js/content.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SLUG = 'blockstead';
@@ -34,7 +40,12 @@ function boot({ hash = '' } = {}) {
     const u = decodeURIComponent(url);
     if (u.endsWith('/api/v1/users/' + USER + '/profile')) return Response.json({ nickname: 'Fletch' });
     if (u.endsWith('/cloud-saves/game:' + SLUG)) {
-      if (method === 'PUT') { cloud.bytes = Buffer.from(JSON.parse(init.body).dataBase64, 'base64'); return new Response(null, { status: 204 }); }
+      if (method === 'PUT') {
+        if (cloud.conflict) { cloud.conflict = false; return Response.json({ etag: '"other"' }, { status: 412 }); }
+        cloud.puts = (cloud.puts || 0) + 1;
+        cloud.bytes = Buffer.from(JSON.parse(init.body).dataBase64, 'base64');
+        return Response.json({ etag: '"v' + cloud.puts + '"' });
+      }
       return cloud.bytes ? new Response(cloud.bytes) : new Response('', { status: 404 });
     }
     if (u.endsWith('/games/' + SLUG + '/settings')) {
@@ -129,4 +140,66 @@ test('account strings exist in every required locale', async () => {
   const keys = Object.keys(PLATFORM_STRINGS['en-US']);
   for (const loc of ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'])
     for (const k of keys) assert.ok(PLATFORM_STRINGS[loc] && PLATFORM_STRINGS[loc][k], loc + '.' + k);
+});
+
+test('save conflict: the cloud copy is reloaded and merged, keeping the better records', async () => {
+  const token = jwt({ sub: USER, game_scope: SLUG, exp: Math.floor(Date.now() / 1000) + 3600 });
+  const { P, SH, cloud } = boot({ hash: '#game_token=' + token });
+  const conflicts = [];
+  await P.init({ onConflict: raw => conflicts.push(raw) });
+  const mine = S.fresh(); mine.progress.journeyStars = { j01: 3 }; mine.progress.stats.rounds = 4; mine.progress.endlessBest = 900;
+  mine.progress.achievements = { 'first-win': 200 };
+  const theirs = S.fresh(); theirs.progress.journeyStars = { j01: 1, j02: 2 }; theirs.progress.challengeBest = { c1: 99 };
+  theirs.progress.stats.rounds = 7; theirs.progress.dailiesDone = { '2026-10-15': 1200 }; theirs.settings.music = 0;
+  theirs.progress.achievements = { 'first-win': 100, 'tower-5': 300 };
+  const wrapDoc = d => { const payload = JSON.stringify(d); return JSON.stringify({ sum: S.checksum(payload), payload }); };
+  P.onLocalSave(wrapDoc(mine)); await P.flushCloud();
+  const other = boot({ hash: '#game_token=' + token });
+  await other.P.init();
+  other.P.onLocalSave(wrapDoc(theirs)); await other.P.flushCloud();
+  cloud.bytes = other.cloud.bytes;
+  cloud.conflict = true;
+  P.onLocalSave(wrapDoc(mine)); await P.flushCloud();
+  await new Promise(r => setTimeout(r, 30));
+  assert.equal(SH.saveConflicted(), false, 'reload clears the conflict');
+  assert.equal(conflicts.length, 1);
+  const merged = S.mergeDocs(S.loadRaw(conflicts[0]), mine);
+  assert.deepEqual(JSON.parse(JSON.stringify(merged.progress.journeyStars)), { j01: 3, j02: 2 });
+  assert.equal(merged.progress.challengeBest.c1, 99);
+  assert.equal(merged.progress.stats.rounds, 7);
+  assert.equal(merged.progress.endlessBest, 900);
+  assert.equal(merged.progress.dailiesDone['2026-10-15'], 1200);
+  assert.deepEqual(JSON.parse(JSON.stringify(merged.progress.achievements)), { 'first-win': 100, 'tower-5': 300 });
+  assert.equal(merged.settings.music, mine.settings.music, 'local settings kept');
+  P.onLocalSave(wrapDoc(merged)); assert.equal(await P.flushCloud(), true, 'merged document saves again');
+});
+
+test('every player-facing string and content name exists in all nine locales', () => {
+  assert.deepEqual(I18N.LOCALES, ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT']);
+  const en = I18N.STRINGS['en-US'];
+  const keys = Object.keys(en);
+  const need = [];
+  Content.JOURNEY.forEach(l => { need.push('lvl.' + l.id); if (l.intro) need.push('intro.' + l.id); });
+  Content.CHALLENGES.forEach(c => need.push('ch.' + c.id, 'chi.' + c.id));
+  Content.PRACTICE.forEach(p => need.push('prac.' + p.id));
+  Content.tutorialLessons().forEach(l => need.push('les.' + l.id, 'lest.' + l.id));
+  Content.ACHIEVEMENTS.forEach(a => need.push('ach.' + a.key, 'achd.' + a.key));
+  Content.THEMES.forEach(th => need.push('theme.' + th.id));
+  Object.keys(Content.BLOCKS).forEach(b => need.push('block.' + b));
+  for (const k of need) assert.ok(keys.includes(k), 'missing key ' + k);
+  // English tables carry the content's own text
+  Content.JOURNEY.forEach(l => assert.equal(en['lvl.' + l.id], l.name));
+  Content.tutorialLessons().forEach(l => assert.equal(en['lest.' + l.id], l.text));
+  for (const loc of I18N.LOCALES) {
+    for (const k of keys) {
+      const v = I18N.STRINGS[loc][k];
+      assert.ok(typeof v === 'string' && v.length, loc + ' ' + k);
+      const ph = x => (x.match(/\{\w+\}/g) || []).sort().join();
+      assert.equal(ph(v), ph(en[k]), loc + ' ' + k + ' placeholders');
+    }
+  }
+  for (const loc of I18N.LOCALES.filter(l => !l.startsWith('en'))) {
+    const same = keys.filter(k => I18N.STRINGS[loc][k] === en[k]).length;
+    assert.ok(same < keys.length * 0.12, loc + ': ' + same + ' untranslated');
+  }
 });

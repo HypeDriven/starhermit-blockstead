@@ -212,7 +212,8 @@
   function play(name) {
     if (!started || !ctx || settings.muted) return;
     if (ctx.state === 'suspended') ctx.resume();
-    caption(CAPTIONS[name]);
+    var I18N = typeof self !== 'undefined' && self.BLI18n;
+    caption(CAPTIONS[name] && I18N ? I18N.t('cap.' + name, null, CAPTIONS[name]) : CAPTIONS[name]);
     if (SAMPLE_EVENTS[name] && playSample(SAMPLE_EVENTS[name])) return;
     var fn = SFX[name];
     if (fn) fn();

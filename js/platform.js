@@ -23,7 +23,7 @@
   var pendingSave = null;      // wrapped save string awaiting load completion
   var pushedSettings = null;   // last settings object mirrored to the KV store
   var platformSettings = null; // settings read from the KV store at start
-  var listeners = { profile: [], sync: [], auth: [] };
+  var listeners = { profile: [], sync: [], auth: [], conflict: [] };
 
   function hosted() { return !!(SH && SH.signedIn); }
   function notify(kind, value) {
@@ -79,9 +79,20 @@
     if (typeof opts.onProfile === 'function') listeners.profile.push(opts.onProfile);
     if (typeof opts.onSync === 'function') listeners.sync.push(opts.onSync);
     if (typeof opts.onAuth === 'function') listeners.auth.push(opts.onAuth);
+    if (typeof opts.onConflict === 'function') listeners.conflict.push(opts.onConflict);
     if (!SH) return Promise.resolve(null);
 
     SH.on('saved', function (ok) { if (hosted()) setSync(ok ? 'synced' : 'offline'); });
+    // A write lost to a save made on another device (conditional PUT refused).
+    // Reload the cloud copy and hand it to the game, which merges it with the
+    // local document and saves the result (that write is conditional again).
+    SH.on('saveconflict', function () {
+      setSync('saving');
+      SH.loadJSON().then(function (remote) {
+        var raw = remote && typeof remote.payload === 'string' ? JSON.stringify(remote) : null;
+        notify('conflict', raw);
+      });
+    });
     SH.on('auth', function (a) {
       if (!a.signedIn) { profile = null; setSync('offline'); }
       notify('auth', a);

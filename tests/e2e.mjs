@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
+import { stubStarHermit, launchToken } from './starhermit-e2e.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOT = (stage, vp) => `/tmp/blockstead-e2e-${stage}-${vp}.png`;
@@ -88,6 +89,7 @@ async function runPass(browser, baseURL, vpName, contextOpts) {
   });
   // Standalone (no launch token): no same-origin /api or /ws request at all.
   page.on('request', (r) => {
+    if (r.headers().authorization) return; // the signed-in Language step talks to the stubbed StarHermit API
     const u = new URL(r.url());
     if (u.origin === baseURL.replace(/\/$/, '') && /^\/(api|ws)(\/|$)/.test(u.pathname)) {
       errors.push(`own-server request while standalone: ${u.pathname}`);
@@ -257,6 +259,64 @@ async function runPass(browser, baseURL, vpName, contextOpts) {
       await page.locator('#btn-play:visible').waitFor();
       await page.screenshot({ path: SHOT('back-to-title', vpName) });
     });
+
+    await step('Language: Automatic follows the StarHermit preferred language; Settings → Language re-renders a paused round live and saves ui.language; report a problem', async () => {
+      const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+      await page.goto('about:blank');
+      await page.goto(`${baseURL}#game_token=${launchToken()}`, { waitUntil: 'load' });
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA' &&
+        document.getElementById('app').getAttribute('data-screen') === 'title');
+      if ((await page.textContent('#btn-journey [data-i18n]')) !== 'Parcours') throw new Error('title not in fr-CA');
+      await page.click('#btn-journey');
+      await page.locator('.level-cell:not(.locked)').first().click();
+      await page.locator('#hud-top:not(.hidden)').waitFor();
+      if ((await page.textContent('#hud-goals h2')) !== 'Objectifs') throw new Error('HUD not in fr-CA');
+      await page.click('#btn-gather');
+      await page.waitForTimeout(200);
+      const hudState = () => page.evaluate(() => [
+        document.getElementById('hud-moves').textContent, document.getElementById('goals-list').textContent,
+        [...document.querySelectorAll('#palette-blocks .btn-sub')].map((b) => b.textContent).join('|')
+      ].join(' / ').replace(/[^\d/|×]/g, ''));
+      const before = await hudState();
+      await page.click('#btn-pause');
+      await page.waitForFunction(() => document.getElementById('app').getAttribute('data-screen') === 'pause');
+      await page.click('#btn-pause-settings');
+      const choice = page.locator('#settings-graphics [data-game-language="choice"]');
+      await choice.waitFor({ state: 'attached' });
+      await choice.scrollIntoViewIfNeeded();
+      const autoLabel = await choice.locator('option').first().textContent();
+      if (!/^Automatique — Français \(Canada\)$/.test(autoLabel)) throw new Error('Automatic label not resolved: ' + autoLabel);
+      await choice.selectOption('it-IT');
+      await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+      await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]').textContent));
+      if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+      if ((await page.textContent('#settings-h')) !== 'Impostazioni') throw new Error('settings heading not re-rendered');
+      if ((await page.textContent('#settings-form label span')) !== 'Musica') throw new Error('settings rows not re-rendered');
+      if ((await page.textContent('#settings-graphics .gfx-label')) !== 'Qualità') throw new Error('graphics panel not re-rendered');
+      if ((await choice.inputValue()) !== 'it-IT') throw new Error('language control lost its value');
+      await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+      await page.fill('[data-game-report="title"]', 'Test report');
+      await page.click('[data-game-report="send"]');
+      await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+      if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+      await page.screenshot({ path: SHOT('language', vpName) });
+      await page.click('.screen[data-name="settings"] button[data-back]');
+      await page.waitForFunction(() => document.getElementById('app').getAttribute('data-screen') === 'pause');
+      if ((await page.textContent('#pause-h')) !== 'In pausa') throw new Error('pause screen not re-rendered');
+      if ((await page.textContent('#hud-goals h2')) !== 'Obiettivi') throw new Error('HUD not re-rendered');
+      if (!/^Mosse/.test(await page.textContent('#hud-moves'))) throw new Error('moves line not re-rendered');
+      if (!/^Legno/.test(await page.textContent('#palette-blocks .btn-sub'))) throw new Error('tray not re-rendered');
+      const after = await hudState();
+      if (before !== after) throw new Error(`round state changed across the language change: ${before} → ${after}`);
+      await page.click('#btn-pause-settings');
+      await choice.selectOption('auto');
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+      await page.click('.screen[data-name="settings"] button[data-back]');
+      await page.click('#btn-leave');
+      await page.waitForFunction(() => document.getElementById('app').getAttribute('data-screen') === 'title');
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await page.goto('about:blank');
+    });
   } finally {
     await context.close();
   }
@@ -277,9 +337,9 @@ try {
     env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'WAYLAND_DISPLAY' && k !== 'DISPLAY'))
   });
   console.log(`serving ${ROOT} at ${baseURL}`);
-  await runPass(browser, baseURL, 'desktop', { viewport: { width: 1280, height: 800 } });
+  await runPass(browser, baseURL, 'desktop', { viewport: { width: 1280, height: 800 }, locale: 'en-US' });
   await runPass(browser, baseURL, 'mobile', {
-    viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true
+    viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, locale: 'en-US'
   });
   console.log('\nE2E PASS — blockstead playable end-to-end on desktop + mobile, no page errors');
 } catch (e) {

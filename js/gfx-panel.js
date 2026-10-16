@@ -233,7 +233,11 @@ export function accountStrings(locale) { return ACCOUNT_STRINGS[locale] || ACCOU
  * Mount the panel. `api`: { get(): savedGfx, set(savedGfx), info(): renderer.graphicsInfo() | null }.
  */
 export function mountGraphicsPanel(root, api) {
-  const S = strings(pickLocale(typeof navigator !== 'undefined' ? (navigator.languages || [navigator.language]) : []));
+  // The panel follows the game language (BLI18n, Settings → Language); relabel() re-reads it.
+  const curLocale = () => (globalThis.BLI18n ? globalThis.BLI18n.lang
+    : pickLocale(typeof navigator !== 'undefined' ? (navigator.languages || [navigator.language]) : []));
+  let S = strings(curLocale());
+  const labels = []; // [span, () => text]
   root.textContent = '';
   root.classList.add('gfx-panel');
   const el = (tag, props, text) => {
@@ -242,9 +246,11 @@ export function mountGraphicsPanel(root, api) {
     if (text != null) e.textContent = text;
     return e;
   };
-  const row = (labelText, input, extra) => {
+  const row = (labelOf, input, extra) => {
     const label = el('label', { className: 'gfx-row' });
-    label.appendChild(el('span', { className: 'gfx-label' }, labelText));
+    const span = el('span', { className: 'gfx-label' }, labelOf());
+    labels.push([span, labelOf]);
+    label.appendChild(span);
     const wrap = el('span', { className: 'gfx-control' });
     wrap.appendChild(input);
     if (extra) wrap.appendChild(extra);
@@ -256,28 +262,34 @@ export function mountGraphicsPanel(root, api) {
   const info0 = api.info() || { detected: 'low' };
   const presetSel = el('select', { id: 'gfx-preset' });
   presetSel.dataset.gfx = 'preset';
-  presetSel.appendChild(el('option', { value: 'auto' }, S.auto.replace('{t}', S.presets[info0.detected] || info0.detected)));
-  PRESETS.forEach(p => presetSel.appendChild(el('option', { value: p }, S.presets[p])));
-  row(S.quality, presetSel);
+  const presetLabels = () => {
+    const info = api.info() || info0;
+    presetSel.options[0].textContent = S.auto.replace('{t}', S.presets[info.detected] || info.detected);
+    PRESETS.forEach((p, i) => { presetSel.options[i + 1].textContent = S.presets[p]; });
+  };
+  presetSel.appendChild(el('option', { value: 'auto' }));
+  PRESETS.forEach(p => presetSel.appendChild(el('option', { value: p })));
+  presetLabels();
+  row(() => S.quality, presetSel);
 
   const scale = el('input', { id: 'gfx-scale', type: 'range', min: 50, max: 200, step: 5 });
   scale.dataset.gfx = 'render_scale';
   const scaleOut = el('output', { id: 'gfx-scale-value', className: 'gfx-out' });
   scale.setAttribute('aria-describedby', 'gfx-scale-value');
-  row(S.renderScale, scale, scaleOut);
+  row(() => S.renderScale, scale, scaleOut);
 
   const catSel = {};
   Object.keys(CATEGORIES).forEach(cat => {
     const sel = el('select', { id: 'gfx-' + cat });
     sel.dataset.gfx = cat;
     catSel[cat] = sel;
-    row(S.cats[cat], sel);
+    row(() => S.cats[cat], sel);
   });
 
   const adaptive = el('input', { id: 'gfx-adaptive', type: 'checkbox' });
-  row(S.adaptive, adaptive);
+  row(() => S.adaptive, adaptive);
   const showFps = el('input', { id: 'gfx-fps', type: 'checkbox' });
-  row(S.showFps, showFps);
+  row(() => S.showFps, showFps);
 
   const summary = el('p', { id: 'gfx-summary', className: 'gfx-summary mini' });
   summary.setAttribute('aria-live', 'polite');
@@ -323,8 +335,19 @@ export function mountGraphicsPanel(root, api) {
   adaptive.addEventListener('change', () => commit(Object.assign({}, api.get(), { adaptive: adaptive.checked })));
   showFps.addEventListener('change', () => commit(Object.assign({}, api.get(), { show_fps: showFps.checked })));
 
+  /** Re-label in place for a language change (controls, values and focus are kept). */
+  function relabel() {
+    S = strings(curLocale());
+    root.lang = curLocale();
+    labels.forEach(([span, of]) => { span.textContent = of(); });
+    presetLabels();
+    note.textContent = S.postFailed;
+    sync();
+  }
+  root.lang = curLocale();
+
   sync();
   // pixel size settles a frame after a change; refresh the summary once more
   requestAnimationFrame(() => requestAnimationFrame(sync));
-  return { sync };
+  return { sync, relabel };
 }
