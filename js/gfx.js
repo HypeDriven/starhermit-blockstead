@@ -35,23 +35,62 @@ export const SHADOW_MAP = { off: 0, low: 1024, medium: 2048, high: 4096 };
 
 export const DEFAULTS = { preset: 'auto', render_scale: 1, adaptive: true, show_fps: false };
 
-/** Best preset for this GPU, from the unmasked renderer string when exposed. */
-export function detectPreset(gpu) {
-  const g = String(gpu || '').toLowerCase();
-  if (/swiftshader|llvmpipe|softpipe|software|basic render|microsoft basic/.test(g)) return 'low';
-  if (/nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|amd radeon(?!.*graphics)|apple m\d/.test(g)) return 'high';
-  return 'balanced';
+// StarHermit hardware level (0–20, gpu-level.js) at which Auto starts choosing each preset.
+export const LEVELS = { low: 0, balanced: 4, high: 10, ultra: 17 };
+
+// Per-preset asset and effect budgets, each tuned to hold 60 FPS on the weakest GPU Auto gives the
+// preset (Low: level 0 phones / Intel UHD; Balanced: level 4 Iris Xe; High: level 10 GTX 1070;
+// Ultra: level 17 RTX 4080). Gameplay is identical on every preset.
+//   hudBlur   — frosted-glass HUD (CSS backdrop blur re-composited over the live 3D view every frame);
+//               off below High, where the panels use a more opaque backing instead
+//   glossy    — clearcoat on glass, lamps and the pond (else plain PBR)
+//   bevel     — rounded-block bevel segments with Surface detail on
+//   texture   — procedural surface texture size in px (wood, stone, leaf, grass, soil, lamp)
+//   rain      — rain drops for Particles high (Particles low uses 40 %), scaled by hardware level
+//   motes     — pollen motes (Particles high)
+//   clouds    — cloud clusters in the sky (Surface detail on)
+//   bloomRes  — bloom resolution as a fraction of the canvas
+export const BUDGETS = {
+  low: { hudBlur: false, glossy: false, bevel: 1, texture: 64, rain: 600, motes: 0, clouds: 3, bloomRes: 0.5 },
+  balanced: { hudBlur: false, glossy: false, bevel: 2, texture: 128, rain: 1000, motes: 30, clouds: 5, bloomRes: 0.5 },
+  high: { hudBlur: true, glossy: true, bevel: 2, texture: 128, rain: 1600, motes: 60, clouds: 7, bloomRes: 0.75 },
+  ultra: { hudBlur: true, glossy: true, bevel: 4, texture: 256, rain: 3200, motes: 120, clouds: 10, bloomRes: 1 },
+};
+
+const gpuApi = () => globalThis.StarHermitGpu;
+
+/** Hardware level 0–20 for a renderer string (+ optional detectSystem() fields such as mobile). */
+export function detectLevel(gpu, system = {}) {
+  const G = gpuApi();
+  return G ? G.detectLevel({ webgl: true, webgl2: true, ...system, gpu: String(gpu || '') }) : 0;
 }
 
-/** Auto choice: detected preset, capped at Balanced on touch/mobile devices. */
+/** Auto preset for a hardware level: Low 0, Balanced 4, High 10, Ultra 17. */
+export function presetForLevel(level) {
+  const G = gpuApi();
+  return G ? G.presetForLevel(level, LEVELS) : PRESETS.filter((p) => LEVELS[p] <= level).pop() || 'low';
+}
+
+/** Best preset for this GPU (hardware level → preset). */
+export function detectPreset(gpu, system) {
+  return presetForLevel(detectLevel(gpu, system));
+}
+
+/** Auto choice for a GPU; phones and tablets are capped at Balanced by the hardware level. */
 export function autoPreset(gpu, mobile) {
-  const d = detectPreset(gpu);
-  if (mobile && PRESETS.indexOf(d) > PRESETS.indexOf('balanced')) return 'balanced';
-  return d;
+  return detectPreset(gpu, { mobile: !!mobile });
+}
+
+/** The preset's budget; rain and motes scale by the level within the preset (≤ 2×). */
+export function budget(preset, level) {
+  const b = BUDGETS[preset] || BUDGETS.balanced;
+  const G = gpuApi(), floor = LEVELS[preset] ?? 0;
+  const k = G ? Math.min(2, G.scaleBudget(1, Number.isFinite(level) ? level : floor, floor)) : 1;
+  return { ...b, rain: Math.round(b.rain * k), motes: Math.round(b.motes * k) };
 }
 
 /** Resolve saved settings into concrete tiers. */
-export function resolve(saved, detected) {
+export function resolve(saved, detected, level) {
   const s = saved || {};
   const auto = !PRESETS.includes(s.preset);
   const preset = auto ? (PRESETS.includes(detected) ? detected : 'balanced') : s.preset;
@@ -65,6 +104,7 @@ export function resolve(saved, detected) {
   for (const cat of Object.keys(CATEGORIES)) {
     out[cat] = CATEGORIES[cat].includes(s[cat]) ? s[cat] : row[cat];
   }
+  out.budget = budget(preset, level);
   out.adaptive = s.adaptive !== false;
   out.showFps = !!s.show_fps;
   // The composer runs only when something needs it; otherwise the canvas's

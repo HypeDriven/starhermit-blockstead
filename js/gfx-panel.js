@@ -16,6 +16,7 @@ const L = {
       reflections: 'Reflections', detail: 'Surface detail', particles: 'Particles', background: 'Scenery motion' },
     tiers: { off: 'Off', on: 'On', low: 'Low', medium: 'Medium', high: 'High', plain: 'Plain', detailed: 'Detailed',
       static: 'Still', animated: 'Animated', fxaa: 'FXAA', smaa: 'SMAA', msaa: 'MSAA' },
+    level: 'Level {level}',
     words: { noShadows: 'no shadows', shadows: '{n}² shadows', ao: 'ambient occlusion', aoFull: 'full ambient occlusion',
       bloom: 'bloom', reflections: 'reflections', noAA: 'no anti-aliasing' }
   },
@@ -28,6 +29,7 @@ const L = {
       reflections: 'Reflejos', detail: 'Detalle de superficies', particles: 'Partículas', background: 'Movimiento del paisaje' },
     tiers: { off: 'No', on: 'Sí', low: 'Bajas', medium: 'Medias', high: 'Altas', plain: 'Simple', detailed: 'Detallado',
       static: 'Quieto', animated: 'Animado', fxaa: 'FXAA', smaa: 'SMAA', msaa: 'MSAA' },
+    level: 'Nivel {level}',
     words: { noShadows: 'sin sombras', shadows: 'sombras {n}²', ao: 'oclusión ambiental', aoFull: 'oclusión ambiental completa',
       bloom: 'resplandor', reflections: 'reflejos', noAA: 'sin antialiasing' }
   },
@@ -40,6 +42,7 @@ const L = {
       reflections: 'Spiegelungen', detail: 'Oberflächendetails', particles: 'Partikel', background: 'Landschaftsbewegung' },
     tiers: { off: 'Aus', on: 'An', low: 'Niedrig', medium: 'Mittel', high: 'Hoch', plain: 'Schlicht', detailed: 'Detailliert',
       static: 'Ruhig', animated: 'Animiert', fxaa: 'FXAA', smaa: 'SMAA', msaa: 'MSAA' },
+    level: 'Stufe {level}',
     words: { noShadows: 'keine Schatten', shadows: '{n}²-Schatten', ao: 'Umgebungsverdeckung', aoFull: 'volle Umgebungsverdeckung',
       bloom: 'Bloom', reflections: 'Spiegelungen', noAA: 'keine Kantenglättung' }
   },
@@ -52,6 +55,7 @@ const L = {
       reflections: 'Reflets', detail: 'Détail des surfaces', particles: 'Particules', background: 'Paysage animé' },
     tiers: { off: 'Non', on: 'Oui', low: 'Basses', medium: 'Moyennes', high: 'Hautes', plain: 'Simple', detailed: 'Détaillé',
       static: 'Immobile', animated: 'Animé', fxaa: 'FXAA', smaa: 'SMAA', msaa: 'MSAA' },
+    level: 'Niveau {level}',
     words: { noShadows: 'sans ombres', shadows: 'ombres {n}²', ao: 'occlusion ambiante', aoFull: 'occlusion ambiante complète',
       bloom: 'halo', reflections: 'reflets', noAA: 'sans anticrénelage' }
   },
@@ -64,6 +68,7 @@ const L = {
       reflections: 'Reflexos', detail: 'Detalhe das superfícies', particles: 'Partículas', background: 'Movimento da paisagem' },
     tiers: { off: 'Desligado', on: 'Ligado', low: 'Baixas', medium: 'Médias', high: 'Altas', plain: 'Simples', detailed: 'Detalhado',
       static: 'Parado', animated: 'Animado', fxaa: 'FXAA', smaa: 'SMAA', msaa: 'MSAA' },
+    level: 'Nível {level}',
     words: { noShadows: 'sem sombras', shadows: 'sombras {n}²', ao: 'oclusão ambiente', aoFull: 'oclusão ambiente completa',
       bloom: 'brilho', reflections: 'reflexos', noAA: 'sem antisserrilhamento' }
   },
@@ -76,6 +81,7 @@ const L = {
       reflections: 'Riflessi', detail: 'Dettaglio superfici', particles: 'Particelle', background: 'Paesaggio animato' },
     tiers: { off: 'No', on: 'Sì', low: 'Basse', medium: 'Medie', high: 'Alte', plain: 'Semplice', detailed: 'Dettagliato',
       static: 'Fermo', animated: 'Animato', fxaa: 'FXAA', smaa: 'SMAA', msaa: 'MSAA' },
+    level: 'Livello {level}',
     words: { noShadows: 'senza ombre', shadows: 'ombre {n}²', ao: 'occlusione ambientale', aoFull: 'occlusione ambientale completa',
       bloom: 'bagliore', reflections: 'riflessi', noAA: 'senza antialiasing' }
   }
@@ -318,7 +324,7 @@ export function mountGraphicsPanel(root, api) {
     showFps.checked = !!saved.show_fps;
     if (info) {
       const px = info.summary.match(/(\d+×\d+ px)$/);
-      summary.textContent = [info.gpu, describe(info.resolved, null, S.words), px ? px[1] : null].filter(Boolean).join(' · ');
+      summary.textContent = [info.gpu, S.level.replace('{level}', info.level ?? 0), describe(info.resolved, null, S.words), px ? px[1] : null].filter(Boolean).join(' · ');
       note.hidden = !info.postFailed;
     } else {
       summary.textContent = '';

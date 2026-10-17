@@ -18,7 +18,16 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { autoPreset, describe, resolve, SHADOW_MAP } from './gfx.js';
+import { detectLevel, presetForLevel, describe, resolve, SHADOW_MAP } from './gfx.js';
+
+// EffectComposer resizes every pass to the full frame (addPass / setSize); this keeps a pass at a
+// fraction of it (used for the preset budget's bloom resolution).
+function atScale(pass, k) {
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
+}
+
 
 const CELL = 1;                 // world units per plot cell
 const FRAMING = { phi: 0.95, theta: 0.65, dist: 11 }; // authored default framing
@@ -66,8 +75,9 @@ function hash2(x, y, s) {
   h = Math.imul(h ^ (h >>> 13), 1103515245);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
-function makeTexture(kind) {
-  const N = 128;
+function makeTexture(kind, size) {
+  const N = size || 128;
+  const S = N / 128; // patterns are authored at 128 px
   const c = document.createElement('canvas');
   c.width = c.height = N;
   const g = c.getContext('2d');
@@ -78,19 +88,20 @@ function makeTexture(kind) {
     img.data[i] = img.data[i + 1] = img.data[i + 2] = b; img.data[i + 3] = 255;
   };
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const n = hash2(x, y, 7), n2 = hash2(x >> 2, y >> 2, 3);
+    const X = Math.floor(x / S), Y = Math.floor(y / S); // pattern space (128 px)
+    const n = hash2(x, y, 7), n2 = hash2(X >> 2, Y >> 2, 3);
     let v = 0.93;
     if (kind === 'wood') {
-      const plank = Math.floor(y / 32);
-      const grain = Math.sin((x + plank * 17) * 0.45 + Math.sin(y * 0.15 + plank) * 2.2) * 0.04;
+      const plank = Math.floor(Y / 32);
+      const grain = Math.sin((x / S + plank * 17) * 0.45 + Math.sin(y / S * 0.15 + plank) * 2.2) * 0.04;
       v = 0.9 + grain + (n - 0.5) * 0.05 + (hash2(plank, 0, 5) - 0.5) * 0.08;
-      if (y % 32 < 2) v = 0.66;                               // plank seam
-      if ((x === 8 || x === 119) && (y % 32 === 16)) v = 0.55; // nail
+      if (Y % 32 < 2) v = 0.66;                               // plank seam
+      if ((X === 8 || X === 119) && (Y % 32 === 16)) v = 0.55; // nail
     } else if (kind === 'stone') {
-      const row = Math.floor(y / 32), off = (row % 2) * 32;
-      const bx = Math.floor((x + off) / 64);
+      const row = Math.floor(Y / 32), off = (row % 2) * 32;
+      const bx = Math.floor((X + off) / 64);
       v = 0.9 + (hash2(bx, row, 9) - 0.5) * 0.12 + (n2 - 0.5) * 0.08 + (n - 0.5) * 0.05;
-      if (y % 32 < 3 || (x + off) % 64 < 3) v = 0.62;          // mortar
+      if (Y % 32 < 3 || (X + off) % 64 < 3) v = 0.62;          // mortar
     } else if (kind === 'leaf') {
       v = 0.86 + (n2 - 0.5) * 0.22 + (n - 0.5) * 0.08;
     } else if (kind === 'grass') {
@@ -99,8 +110,8 @@ function makeTexture(kind) {
     } else if (kind === 'soil') {
       v = 0.92 + (n2 - 0.5) * 0.06 + (n - 0.5) * 0.05 + (n > 0.95 ? 0.07 : 0);
     } else if (kind === 'lamp') {
-      const e = Math.min(x, y, N - 1 - x, N - 1 - y);
-      v = e < 12 ? 0.42 : (x > 60 && x < 68) || (y > 60 && y < 68) ? 0.5 : 1;
+      const e = Math.min(X, Y, 127 - X, 127 - Y);
+      v = e < 12 ? 0.42 : (X > 60 && X < 68) || (Y > 60 && Y < 68) ? 0.5 : 1;
     }
     px(x, y, v);
   }
@@ -142,7 +153,9 @@ export function createRenderer(opts) {
   })();
   const mobile = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
     /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || '');
-  const detected = autoPreset(gpu, mobile);
+  // StarHermit hardware level (gpu-level.js) → Auto preset: Low 0, Balanced 4, High 10, Ultra 17.
+  const level = window.StarHermitGpu ? window.StarHermitGpu.info().level : detectLevel(gpu, { mobile });
+  const detected = presetForLevel(level);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
@@ -189,20 +202,32 @@ export function createRenderer(opts) {
 
   // ---------- shared geometry / materials ----------
   const boxGeo = new THREE.BoxGeometry(0.92, 0.92, 0.92);
-  const roundGeo = new RoundedBoxGeometry(0.92, 0.92, 0.92, 2, 0.07);
+  // Rounded blocks per budget bevel segments (cached; every variant is a shared geometry).
+  const roundGeos = {};
+  const sharedGeos = new Set(); // geometries shared by many meshes (never disposed with a group)
+  function roundBlock(segs, top) {
+    const k = (top ? 't' : 'b') + segs;
+    if (!roundGeos[k]) {
+      roundGeos[k] = top ? new RoundedBoxGeometry(0.5, 0.28, 0.5, segs, 0.05) : new RoundedBoxGeometry(0.92, 0.92, 0.92, segs, 0.07);
+      sharedGeos.add(roundGeos[k]);
+    }
+    return roundGeos[k];
+  }
+  const roundGeo = roundBlock(2, false);
   const tileGeo = new THREE.BoxGeometry(0.98, 0.12, 0.98);
   const topGeo = new THREE.BoxGeometry(0.5, 0.28, 0.5);
-  const roundTopGeo = new RoundedBoxGeometry(0.5, 0.28, 0.5, 2, 0.05);
+  const roundTopGeo = roundBlock(2, true);
   const ringGeo = new THREE.RingGeometry(0.3, 0.42, 24);
   const discGeo = new THREE.CircleGeometry(0.16, 16);
 
   const tex = {};
   function texture(kind) {
-    if (!tex[kind]) {
-      tex[kind] = makeTexture(kind === 'ground' ? 'grass' : kind);
-      if (kind === 'ground') tex[kind].repeat.set(10, 10);
+    const size = q.budget.texture, id = kind + ':' + size;
+    if (!tex[id]) {
+      tex[id] = makeTexture(kind === 'ground' ? 'grass' : kind, size);
+      if (kind === 'ground') tex[id].repeat.set(10, 10);
     }
-    return tex[kind];
+    return tex[id];
   }
 
   // Materials are created once and updated in place, so meshes never hold
@@ -258,6 +283,10 @@ export function createRenderer(opts) {
     mats.hill.color.set(palette.horizon);
     // Reflections: environment map on everything lit, strongest on glossy pieces;
     // the hemisphere fill is lowered so overall exposure stays the same.
+    // Clearcoat only where the budget allows (clearcoat 0 compiles the cheaper non-clearcoat shader).
+    const gl = q.budget.glossy;
+    const coat = (m, c) => { if (m.clearcoat !== c) { m.clearcoat = c; m.needsUpdate = true; } };
+    coat(mats.glass, gl ? 0.8 : 0); coat(mats.lamp, gl ? 0.6 : 0); coat(mats.water, gl ? 0.3 : 0);
     const env = q.reflections === 'on';
     scene.environment = env ? environmentTexture() : null;
     LIT.forEach(k => { mats[k].envMapIntensity = 0.35; });
@@ -284,7 +313,7 @@ export function createRenderer(opts) {
 
   // ---------- quality ----------
   let saved = {};
-  let q = resolve(saved, detected);
+  let q = resolve(saved, detected, level);
 
   // ---------- plot state ----------
   let cfg = null;             // current rules cfg (plot dims)
@@ -306,15 +335,16 @@ export function createRenderer(opts) {
   function makeBlockMesh(type, x, y, h) {
     const detailed = q.detail === 'detailed';
     const g = new THREE.Group();
-    const m = new THREE.Mesh(detailed ? roundGeo : boxGeo, mats[type] || mats.stone);
+    const segs = Math.max(1, q.budget.bevel);
+    const m = new THREE.Mesh(detailed ? roundBlock(segs, false) : boxGeo, mats[type] || mats.stone);
     m.castShadow = true; m.receiveShadow = true;
     g.add(m);
     if (type === 'plant') {
-      const top = new THREE.Mesh(detailed ? roundTopGeo : topGeo, mats.plantTop);
+      const top = new THREE.Mesh(detailed ? roundBlock(segs, true) : topGeo, mats.plantTop);
       top.position.y = 0.55; top.castShadow = true;
       g.add(top);
     } else if (type === 'lamp') {
-      const cap = new THREE.Mesh(detailed ? roundTopGeo : topGeo, mats.rock);
+      const cap = new THREE.Mesh(detailed ? roundBlock(segs, true) : topGeo, mats.rock);
       cap.position.y = 0.55; cap.castShadow = true;
       g.add(cap);
     } else if (type === 'rock') {
@@ -461,7 +491,8 @@ export function createRenderer(opts) {
     envGroup.add(sky);
     clouds = new THREE.Group();
     const puff = new THREE.IcosahedronGeometry(1, 1);
-    for (let i = 0; i < 7; i++) {
+    const nClouds = q.budget.clouds;
+    for (let i = 0; i < nClouds; i++) {
       const c = new THREE.Group();
       const n = 3 + (i % 3);
       for (let k = 0; k < n; k++) {
@@ -470,7 +501,7 @@ export function createRenderer(opts) {
         p.scale.setScalar(1.1 + ((k + i) % 3) * 0.35);
         c.add(p);
       }
-      const a = (i / 7) * Math.PI * 2 + 0.4;
+      const a = (i / nClouds) * Math.PI * 2 + 0.4;
       c.position.set(Math.cos(a) * 26, 12 + (i % 3) * 2, Math.sin(a) * 26);
       c.scale.set(1.4, 0.7, 1);
       c.lookAt(0, c.position.y, 0);
@@ -485,7 +516,7 @@ export function createRenderer(opts) {
   function buildParticles() {
     if (rain) { fxGroup.remove(rain); rain.geometry.dispose(); rain.material.dispose(); rain = null; }
     if (motes) { fxGroup.remove(motes); motes.geometry.dispose(); motes.material.dispose(); motes = null; }
-    const n = q.particles === 'high' ? 1600 : q.particles === 'low' ? 600 : 0;
+    const n = q.particles === 'high' ? q.budget.rain : q.particles === 'low' ? Math.round(q.budget.rain * 0.4) : 0;
     if (!n) return;
     const pos = new Float32Array(n * 3);
     rainVel = new Float32Array(n);
@@ -502,9 +533,9 @@ export function createRenderer(opts) {
     }));
     rain.raycast = () => {};
     fxGroup.add(rain);
-    if (q.particles === 'high') {
+    if (q.particles === 'high' && q.budget.motes > 0) {
       // sunlit pollen motes drifting over the plot
-      const m = 60, mp = new Float32Array(m * 3);
+      const m = q.budget.motes, mp = new Float32Array(m * 3);
       for (let i = 0; i < m; i++) {
         mp[i * 3] = (Math.random() - 0.5) * 14; mp[i * 3 + 1] = 0.3 + Math.random() * 4;
         mp[i * 3 + 2] = (Math.random() - 0.5) * 14;
@@ -695,7 +726,7 @@ export function createRenderer(opts) {
   function disposeGroup(g) {
     g.traverse(o => { if (o.geometry && !isShared(o.geometry)) o.geometry.dispose(); });
   }
-  const sharedGeos = new Set([boxGeo, roundGeo, tileGeo, topGeo, roundTopGeo, ringGeo, discGeo]);
+  [boxGeo, tileGeo, topGeo, ringGeo, discGeo].forEach(g => sharedGeos.add(g));
   function isShared(g) { return sharedGeos.has(g); }
 
   let flashes = []; // {x,y,h,t,kind}
@@ -804,7 +835,8 @@ export function createRenderer(opts) {
     savedJson = json;
     saved = Object.assign({}, next || {});
     const prev = q;
-    q = resolve(saved, detected);
+    q = resolve(saved, detected, level);
+    document.body.classList.toggle('gfx-hud-blur', q.budget.hudBlur);
     const shadowSize = SHADOW_MAP[q.shadows];
     const shadowChanged = renderer.shadowMap.enabled !== shadowSize > 0;
     renderer.shadowMap.enabled = shadowSize > 0;
@@ -816,11 +848,12 @@ export function createRenderer(opts) {
     updateMats();
     if (shadowChanged) LIT.forEach(k => { mats[k].needsUpdate = true; });
     const skyWrong = !!sky !== (q.detail === 'detailed');
-    if (skyWrong || prev.detail !== q.detail || (prev.shadows === 'off') !== (q.shadows === 'off')) {
+    const budgetChanged = ['bevel', 'texture', 'clouds'].some(k => prev.budget[k] !== q.budget[k]);
+    if (skyWrong || budgetChanged || prev.detail !== q.detail || (prev.shadows === 'off') !== (q.shadows === 'off')) {
       buildSky();
       if (lastState) setState(lastState, { force: true, keepCamera: true, showcase });
     }
-    if (prev.particles !== q.particles || !rainVel) buildParticles();
+    if (prev.particles !== q.particles || prev.budget.rain !== q.budget.rain || prev.budget.motes !== q.budget.motes || !rainVel) buildParticles();
     applyAtmosphere();
     adaptiveScale = 1; frames = [];
     postKey = null; // rebuild the post chain on the next frame
@@ -833,7 +866,7 @@ export function createRenderer(opts) {
   function graphicsInfo() {
     const px = [Math.round(size[0] * pixelRatio), Math.round(size[1] * pixelRatio)];
     return {
-      gpu: gpu || 'unknown GPU', detected, resolved: q,
+      gpu: gpu || 'unknown GPU', level, detected, resolved: q,
       summary: describe(q, px), fps: Math.round(fps),
       adaptiveScale: Math.round(adaptiveScale * 100) / 100, postFailed
     };
@@ -874,7 +907,8 @@ export function createRenderer(opts) {
       }
       if (q.bloom === 'on') {
         // High threshold: only lamps, glints and sunlit glass bloom.
-        c.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), 0.4, 0.35, 0.95));
+        const br = q.budget.bloomRes; // bloom at the budget's fraction of the canvas resolution
+        c.addPass(atScale(new UnrealBloomPass(new THREE.Vector2(Math.round(W * br), Math.round(H * br)), 0.4, 0.35, 0.95), br));
       }
       c.addPass(new OutputPass());
       if (q.grade === 'on') {
