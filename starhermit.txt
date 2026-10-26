@@ -1,9 +1,24 @@
 name=Blockstead
 description=Gather timber and stone, build a voxel settlement, and complete construction goals before your moves run out.
-launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=score-script.js
 cover=cover.jpg
+
+# StarHermit engine script game: one package, played natively by the
+# StarHermit client and in browsers by the engine's web runtime. Browsers open
+# launch=index.html, the loader `npm run package` writes (it pins the engine
+# on wiki.starhermit.com by hash; never edit it). Re-run `npm run package`
+# after every change and commit index.html + starhermit-files.json.
+launch=index.html
+engine.api=1
+engine.entry=native/main.ts
+engine.version=1.14.0
+engine.minor=16
+engine.capabilities=platform,storage,clipboard
+
+# Keyboard controls (players rebind keys and pads in the runtime's Options).
+# The plot is also played with the pointer or touch: tap a tile to build or
+# remove, drag to orbit, scroll to zoom.
 control.pause=KeyP | Pause / resume
 control.back=Escape | Back / pause
 control.prev=ArrowLeft+ArrowUp | Previous target tile
@@ -14,10 +29,31 @@ control.remove=KeyR | Remove tool
 control.undo=KeyU | Undo
 control.hint=KeyH | Hint
 control.camera=KeyC | Reset camera
-control.topDown=KeyT | Top-down camera
+control.topdown=KeyT | Top-down camera
 control.skip=KeyS | Skip animations
 control.block1=Digit1+Numpad1 | Select block 1
 control.block2=Digit2+Numpad2 | Select block 2
 control.block3=Digit3+Numpad3 | Select block 3
 control.block4=Digit4+Numpad4 | Select block 4
 control.block5=Digit5+Numpad5 | Select block 5
+control.prev_block=BracketLeft | Previous block
+control.next_block=BracketRight | Next block
+engine.group.pause=Round
+engine.group.prev=Building
+engine.group.camera=Camera
+engine.group.block1=Blocks
+
+# Gamepad defaults: the D-pad cycles the legal target tiles, A builds there.
+engine.gamepad.pause=Start
+engine.gamepad.prev=DpadLeft+DpadUp
+engine.gamepad.next=DpadRight+DpadDown
+engine.gamepad.place=South
+engine.gamepad.remove=East
+engine.gamepad.gather=West
+engine.gamepad.undo=North
+engine.gamepad.hint=Select
+engine.gamepad.camera=RightStickPress
+engine.gamepad.topdown=LeftStickPress
+engine.gamepad.skip=RightTrigger
+engine.gamepad.prev_block=LeftShoulder
+engine.gamepad.next_block=RightShoulder

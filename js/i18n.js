@@ -1,16 +1,13 @@
-/* Blockstead — localization for every player-facing string except the
- * Graphics panel and StarHermit account lines (js/gfx-panel.js, which reads
- * the same locale through BLI18n.lang).
+/* Blockstead — localization for every player-facing string, the StarHermit
+ * account lines included.
  *
  * Nine locales: en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT.
- * The locale comes from sh-language.js (Settings → Language: explicit choice →
- * StarHermit preferred language → navigator.languages → en-US); `?lang=`
- * forces one for the page load (QA links) and hides the selector. A change
- * re-applies [data-i18n] markup and fires `bl-language` on document so the
- * open screen, HUD and panels re-render.
+ * The engine client (native/i18n.ts) picks the locale from the runtime's
+ * interface language (Options › Language, else the account's preferred
+ * language or the device's) and calls setLocale; t() falls back to en-US.
  * Content (js/content.js) keeps its English names as data; cfgName/cfgIntro
  * and friends name it in the current language at display time.
- * UMD: window.BLI18n / module.exports (tables only in Node).
+ * UMD: globalThis.BLI18n (loadClassic) / module.exports (Node tests).
  */
 (function (root, factory) {
   var api = factory(root);
@@ -907,6 +904,179 @@
     'ach.challenger': 'Collaudato', 'achd.challenger': 'Completa tutte e sei le sfide.'
   };
 
+  // StarHermit account lines (sign-in, invite, sync status), formerly
+  // js/gfx-panel.js ACCOUNT_STRINGS.
+  var ACCOUNT = {
+    "en-US": {
+      "acct.signIn": "Sign in with StarHermit",
+      "acct.invite": "Invite a friend",
+      "acct.inviteCopied": "Invite link copied to the clipboard.",
+      "acct.inviteFailed": "Could not copy the invite link.",
+      "acct.offline": "Offline — progress is stored on this device.",
+      "acct.playingAs": "Playing as {name}",
+      "acct.synced": "progress synced",
+      "acct.saving": "saving…",
+      "acct.syncOff": "cloud sync unavailable",
+      "acct.signedOut": "Signed out of StarHermit — progress stays on this device."
+    },
+    "en-GB": {
+      "acct.signIn": "Sign in with StarHermit",
+      "acct.invite": "Invite a friend",
+      "acct.inviteCopied": "Invite link copied to the clipboard.",
+      "acct.inviteFailed": "Could not copy the invite link.",
+      "acct.offline": "Offline — progress is stored on this device.",
+      "acct.playingAs": "Playing as {name}",
+      "acct.synced": "progress synced",
+      "acct.saving": "saving…",
+      "acct.syncOff": "cloud sync unavailable",
+      "acct.signedOut": "Signed out of StarHermit — progress stays on this device."
+    },
+    "es-419": {
+      "acct.signIn": "Iniciar sesión con StarHermit",
+      "acct.invite": "Invitar a un amigo",
+      "acct.inviteCopied": "Enlace de invitación copiado al portapapeles.",
+      "acct.inviteFailed": "No se pudo copiar el enlace de invitación.",
+      "acct.offline": "Sin conexión: el progreso se guarda en este dispositivo.",
+      "acct.playingAs": "Jugando como {name}",
+      "acct.synced": "progreso sincronizado",
+      "acct.saving": "guardando…",
+      "acct.syncOff": "sincronización en la nube no disponible",
+      "acct.signedOut": "Sesión de StarHermit cerrada: el progreso se queda en este dispositivo."
+    },
+    "es-ES": {
+      "acct.signIn": "Iniciar sesión con StarHermit",
+      "acct.invite": "Invitar a un amigo",
+      "acct.inviteCopied": "Enlace de invitación copiado en el portapapeles.",
+      "acct.inviteFailed": "No se pudo copiar el enlace de invitación.",
+      "acct.offline": "Sin conexión: el progreso se guarda en este dispositivo.",
+      "acct.playingAs": "Jugando como {name}",
+      "acct.synced": "progreso sincronizado",
+      "acct.saving": "guardando…",
+      "acct.syncOff": "sincronización en la nube no disponible",
+      "acct.signedOut": "Sesión de StarHermit cerrada: el progreso se queda en este dispositivo."
+    },
+    "de-DE": {
+      "acct.signIn": "Mit StarHermit anmelden",
+      "acct.invite": "Freund einladen",
+      "acct.inviteCopied": "Einladungslink in die Zwischenablage kopiert.",
+      "acct.inviteFailed": "Einladungslink konnte nicht kopiert werden.",
+      "acct.offline": "Offline – der Fortschritt wird auf diesem Gerät gespeichert.",
+      "acct.playingAs": "Du spielst als {name}",
+      "acct.synced": "Fortschritt synchronisiert",
+      "acct.saving": "wird gespeichert …",
+      "acct.syncOff": "Cloud-Synchronisierung nicht verfügbar",
+      "acct.signedOut": "Von StarHermit abgemeldet – der Fortschritt bleibt auf diesem Gerät."
+    },
+    "fr-FR": {
+      "acct.signIn": "Se connecter avec StarHermit",
+      "acct.invite": "Inviter un ami",
+      "acct.inviteCopied": "Lien d’invitation copié dans le presse-papiers.",
+      "acct.inviteFailed": "Impossible de copier le lien d’invitation.",
+      "acct.offline": "Hors ligne : la progression est enregistrée sur cet appareil.",
+      "acct.playingAs": "Vous jouez en tant que {name}",
+      "acct.synced": "progression synchronisée",
+      "acct.saving": "enregistrement…",
+      "acct.syncOff": "synchronisation cloud indisponible",
+      "acct.signedOut": "Déconnecté de StarHermit : la progression reste sur cet appareil."
+    },
+    "fr-CA": {
+      "acct.signIn": "Se connecter avec StarHermit",
+      "acct.invite": "Inviter un ami",
+      "acct.inviteCopied": "Lien d’invitation copié dans le presse-papiers.",
+      "acct.inviteFailed": "Impossible de copier le lien d’invitation.",
+      "acct.offline": "Hors ligne : la progression est enregistrée sur cet appareil.",
+      "acct.playingAs": "Vous jouez en tant que {name}",
+      "acct.synced": "progression synchronisée",
+      "acct.saving": "enregistrement…",
+      "acct.syncOff": "synchronisation infonuagique indisponible",
+      "acct.signedOut": "Déconnecté de StarHermit : la progression reste sur cet appareil."
+    },
+    "pt-BR": {
+      "acct.signIn": "Entrar com a StarHermit",
+      "acct.invite": "Convidar um amigo",
+      "acct.inviteCopied": "Link de convite copiado para a área de transferência.",
+      "acct.inviteFailed": "Não foi possível copiar o link de convite.",
+      "acct.offline": "Offline — o progresso fica salvo neste dispositivo.",
+      "acct.playingAs": "Jogando como {name}",
+      "acct.synced": "progresso sincronizado",
+      "acct.saving": "salvando…",
+      "acct.syncOff": "sincronização na nuvem indisponível",
+      "acct.signedOut": "Você saiu da StarHermit — o progresso continua neste dispositivo."
+    },
+    "it-IT": {
+      "acct.signIn": "Accedi con StarHermit",
+      "acct.invite": "Invita un amico",
+      "acct.inviteCopied": "Link di invito copiato negli appunti.",
+      "acct.inviteFailed": "Impossibile copiare il link di invito.",
+      "acct.offline": "Offline: i progressi sono salvati su questo dispositivo.",
+      "acct.playingAs": "Stai giocando come {name}",
+      "acct.synced": "progressi sincronizzati",
+      "acct.saving": "salvataggio…",
+      "acct.syncOff": "sincronizzazione cloud non disponibile",
+      "acct.signedOut": "Disconnesso da StarHermit: i progressi restano su questo dispositivo."
+    }
+  };
+
+  // Strings the engine client added: the runtime's Options button, the
+  // erase confirmation (no window.confirm on the runtime) and the gamepad
+  // line of How to play.
+  var PORT = {
+    "en-US": {
+      "set.options": "Sound, graphics, language and controls…",
+      "prof.yes": "Erase everything",
+      "prof.no": "Cancel",
+      "help.pad": "Gamepad: D-pad picks a target, A places, B toggles the remove tool, X gathers, Y undoes, the shoulder buttons switch blocks, Start pauses."
+    },
+    "es-419": {
+      "set.options": "Sonido, gráficos, idioma y controles…",
+      "prof.yes": "Borrar todo",
+      "prof.no": "Cancelar",
+      "help.pad": "Control: la cruceta elige un objetivo, A coloca, B activa o desactiva la herramienta de quitar, X recolecta, Y deshace, los botones superiores cambian de bloque, Start pausa."
+    },
+    "es-ES": {
+      "set.options": "Sonido, gráficos, idioma y controles…",
+      "prof.yes": "Borrar todo",
+      "prof.no": "Cancelar",
+      "help.pad": "Mando: la cruceta elige un objetivo, A coloca, B activa o desactiva la herramienta de quitar, X recolecta, Y deshace, los gatillos superiores cambian de bloque, Start pausa."
+    },
+    "de-DE": {
+      "set.options": "Ton, Grafik, Sprache und Steuerung …",
+      "prof.yes": "Alles löschen",
+      "prof.no": "Abbrechen",
+      "help.pad": "Gamepad: Steuerkreuz wählt ein Ziel, A setzt, B schaltet das Abriss-Werkzeug um, X sammelt, Y macht rückgängig, die Schultertasten wechseln den Block, Start pausiert."
+    },
+    "fr-FR": {
+      "set.options": "Son, graphismes, langue et commandes…",
+      "prof.yes": "Tout effacer",
+      "prof.no": "Annuler",
+      "help.pad": "Manette : la croix choisit une cible, A pose, B active ou coupe l’outil de retrait, X récolte, Y annule, les gâchettes hautes changent de bloc, Start met en pause."
+    },
+    "fr-CA": {
+      "set.options": "Son, graphismes, langue et commandes…",
+      "prof.yes": "Tout effacer",
+      "prof.no": "Annuler",
+      "help.pad": "Manette : la croix choisit une cible, A pose, B active ou coupe l’outil de retrait, X récolte, Y annule, les boutons d’épaule changent de bloc, Start met en pause."
+    },
+    "pt-BR": {
+      "set.options": "Som, gráficos, idioma e controles…",
+      "prof.yes": "Apagar tudo",
+      "prof.no": "Cancelar",
+      "help.pad": "Controle: o direcional escolhe um alvo, A coloca, B liga ou desliga a ferramenta de remover, X coleta, Y desfaz, os botões de ombro trocam o bloco, Start pausa."
+    },
+    "it-IT": {
+      "set.options": "Audio, grafica, lingua e comandi…",
+      "prof.yes": "Cancella tutto",
+      "prof.no": "Annulla",
+      "help.pad": "Controller: la croce sceglie un bersaglio, A piazza, B attiva o disattiva lo strumento rimuovi, X raccoglie, Y annulla, i tasti dorsali cambiano blocco, Start mette in pausa."
+    },
+    "en-GB": {
+      "set.options": "Sound, graphics, language and controls…",
+      "prof.yes": "Erase everything",
+      "prof.no": "Cancel",
+      "help.pad": "Gamepad: D-pad picks a target, A places, B toggles the remove tool, X gathers, Y undoes, the shoulder buttons switch blocks, Start pauses."
+    }
+  };
+
   var STRINGS = {
     'en-US': EN,
     'en-GB': Object.assign({}, EN, EN_GB),
@@ -919,6 +1089,7 @@
     'it-IT': IT
   };
   var LOCALES = Object.keys(STRINGS);
+  LOCALES.forEach(function (loc) { Object.assign(STRINGS[loc], ACCOUNT[loc], PORT[loc]); });
   var lang = 'en-US';
   var dict = EN;
 
@@ -954,45 +1125,13 @@
   function achievementView(a) { return { key: a.key, name: t('ach.' + a.key, null, a.name), desc: t('achd.' + a.key, null, a.desc) }; }
   function themeName(th) { return t('theme.' + th.id, null, th.name); }
 
-  /** Apply data-i18n / data-i18n-aria / data-i18n-title under `scope` (default: document). */
-  function apply(scope) {
-    if (typeof document === 'undefined') return;
-    scope = scope || document;
-    var i, n = scope.querySelectorAll('[data-i18n]');
-    for (i = 0; i < n.length; i++) n[i].textContent = t(n[i].getAttribute('data-i18n'));
-    n = scope.querySelectorAll('[data-i18n-aria]');
-    for (i = 0; i < n.length; i++) n[i].setAttribute('aria-label', t(n[i].getAttribute('data-i18n-aria')));
-    n = scope.querySelectorAll('[data-i18n-title]');
-    for (i = 0; i < n.length; i++) n[i].setAttribute('title', t(n[i].getAttribute('data-i18n-title')));
-    if (scope === document) document.documentElement.lang = lang;
-  }
-
   function setLocale(next) {
     lang = STRINGS[next] ? next : 'en-US';
     dict = STRINGS[lang];
-    if (typeof document === 'undefined') return;
-    document.documentElement.lang = lang;
-    if (document.readyState !== 'loading') apply();
-    document.dispatchEvent(new CustomEvent('bl-language', { detail: { lang: lang } }));
-  }
-
-  var language = null;
-  if (typeof document !== 'undefined') {
-    var forced = null;
-    try { forced = new URLSearchParams(root.location.search).get('lang'); } catch (e) { /* opaque origin */ }
-    var SL = root.StarHermitLanguage;
-    var forcedLocale = forced && SL ? SL.match(forced, LOCALES) : null;
-    language = SL ? SL.create({
-      game: 'blockstead', supported: LOCALES, panel: !forcedLocale,
-      apply: function (locale) { setLocale(forcedLocale || locale); }
-    }) : null;
-    if (!language) setLocale('en-US');
-    // markup parsed after this script: apply once the document is ready
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { apply(); });
   }
 
   return {
-    t: t, apply: apply, LOCALES: LOCALES, STRINGS: STRINGS, language: language,
+    t: t, setLocale: setLocale, LOCALES: LOCALES, STRINGS: STRINGS,
     blockLabel: blockLabel, cfgName: cfgName, cfgIntro: cfgIntro, lessonView: lessonView,
     achievementView: achievementView, themeName: themeName,
     get lang() { return lang; }

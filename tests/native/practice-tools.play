@@ -1,0 +1,97 @@
+# Practice (Apprentice from the setup's difficulty picker): gather, place,
+# undo, the remove tool, a hint, the camera keys and Skip; the pause menu's
+# Settings (captions on) and Help; Restart round; Leave round; then Profile
+# and Scores from the title.
+until 300 Blockstead
+frames 150
+click Play
+until 60 Choose a mode
+frames 10
+click Practice
+until 60 Set up
+frames 10
+click Apprentice
+until 30 Difficulty: Apprentice
+frames 10
+save setup
+click Start
+until 120 Goals
+frames 60
+key KeyG 2
+until 30 Gathered
+frames 10
+key Digit1 2
+frames 6
+key Enter 2
+frames 10
+expect Moves 2
+key KeyU 2
+frames 10
+expect Moves 1
+key Digit1 2
+frames 6
+key Enter 2
+frames 10
+key KeyR 2
+frames 6
+key Enter 2
+frames 10
+expect Moves 3
+key KeyH 2
+until 30 Hint:
+frames 10
+save hint
+key KeyT 2
+frames 40
+save topdown
+key KeyC 2
+frames 6
+key KeyS 2
+until 30 Animations skipped
+key Escape 2
+until 60 Paused
+frames 10
+click Settings
+until 60 Captions for sounds
+frames 10
+click Captions for sounds
+frames 10
+save settings
+key Escape 2
+until 60 Paused
+frames 10
+click Help
+until 60 Glass needs support
+frames 10
+save help
+key Escape 2
+until 60 Paused
+frames 10
+click Restart round
+until 60 Moves 0
+frames 10
+key Digit1 2
+frames 6
+key Enter 2
+frames 30
+save captions
+key Escape 2
+until 60 Paused
+frames 10
+click Leave round
+until 120 Blockstead
+frames 10
+click Profile
+until 60 Achievements
+frames 10
+save profile
+key Escape 2
+until 60 Scores
+frames 10
+click Scores
+until 60 Endless (global)
+frames 10
+save scores
+key Escape 2
+until 60 How to play
+expect Play

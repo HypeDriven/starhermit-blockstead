@@ -1,0 +1,76 @@
+# The other modes' setup cards and a first move in each: today's daily from
+# the title's Daily challenge button, a challenge picked on the setup card
+# (Rocky Plot), the endless score chase; each left from the pause menu.
+until 300 Blockstead
+frames 150
+click Daily challenge
+until 60 Shared seed for
+frames 10
+save daily-setup
+click Start
+until 120 Goals
+frames 30
+key KeyG 2
+until 30 Gathered
+frames 20
+save daily
+key Escape 2
+until 60 Paused
+frames 10
+click Leave round
+until 120 Blockstead
+frames 10
+click Play
+until 60 Choose a mode
+frames 10
+click Challenges
+until 60 This result is ranked
+frames 10
+click Rocky Plot
+until 30 8 boulders on the plot
+frames 10
+save challenge-setup
+click Start
+until 120 Goals
+frames 60
+save challenge
+key Escape 2
+until 60 Paused
+frames 10
+click Leave round
+until 120 Blockstead
+frames 10
+click Play
+until 60 Choose a mode
+frames 10
+# the Score chase card is below the fold: Tab scrolls focus to it
+key Tab 2
+frames 5
+key Tab 2
+frames 5
+key Tab 2
+frames 5
+key Tab 2
+frames 5
+key Tab 2
+frames 10
+key Enter 2
+until 60 Endless: goals regenerate
+frames 10
+click Start
+until 120 Endless Skyline
+frames 30
+key KeyG 2
+frames 10
+key Digit1 2
+frames 6
+key Enter 2
+frames 30
+expect Moves 2
+save score-chase
+key Escape 2
+until 60 Paused
+frames 10
+click Leave round
+until 120 Blockstead
+expect Play

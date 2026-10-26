@@ -1,0 +1,50 @@
+# Title → Play → Journey → stage 1 (First Foundation: place 3 Timber) built
+# to its results by the keyboard as tools/plan.mjs j01 plays it (the block's
+# number key, arrows to the hinted tile, Enter), then the next stage, a pause
+# and Leave round back to the title.
+until 300 Blockstead
+frames 150
+save title
+frames 5
+click Play
+until 60 Choose a mode
+frames 10
+save modes
+click Journey
+until 60 Stars: 0 / 120
+frames 10
+save journey
+click First Foundation
+until 120 Goals
+frames 60
+save stage1
+key Digit1 2
+frames 6
+key Enter 2
+frames 6
+key Digit1 2
+frames 6
+key Enter 2
+frames 6
+key Digit1 2
+frames 6
+key Enter 2
+frames 6
+until 300 Settlement complete!
+expect Total
+expect First Foundation — every goal met in 3 moves.
+frames 150
+save results
+frames 10
+click Next: Timber Frame
+until 120 Timber Frame
+frames 30
+save stage2
+key Escape 2
+until 60 Paused
+frames 10
+save pause
+click Leave round
+until 120 Blockstead
+frames 10
+expect Play

@@ -1,0 +1,39 @@
+# Learn: lesson 1 (Gather supplies) finished by one gather (back to the
+# lessons with its ✓), then lesson 3 (Build upward) built to its results by
+# the keyboard as tools/plan.mjs t3 plays it, and Menu back to the title.
+until 300 Blockstead
+frames 150
+click Play
+until 60 Choose a mode
+frames 10
+click Learn
+until 60 Gather supplies
+frames 10
+save learn
+click Gather supplies
+until 120 Goals
+frames 30
+expect Gather supplies — 0/1
+save lesson1
+key KeyG 2
+until 60 ✓ Gather supplies
+frames 10
+save learn-done
+click Build upward
+until 120 Build upward — 0/1
+frames 30
+key Digit1 2
+frames 6
+key Enter 2
+frames 6
+key Digit1 2
+frames 6
+key Enter 2
+frames 6
+until 300 Settlement complete!
+expect Total
+frames 60
+save lesson3-results
+click Menu
+until 120 Blockstead
+expect Play
