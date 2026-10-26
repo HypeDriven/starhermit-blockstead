@@ -103,7 +103,7 @@
 .key-art { border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.13); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
 .result-art { border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.13); }
 
-.card { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 14px; padding: 13px 15px; }
+.card { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 14px; padding: 9px 14px; }
 .card-title { font-size: 1.17em; font-weight: 700; color: var(--ink); }
 .card-desc { font-size: 0.85em; color: var(--ink); opacity: 0.85; }
 .fact { color: var(--ink); }

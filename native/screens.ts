@@ -143,7 +143,10 @@ function firstLabel(name: ScreenName): string | null {
     case "modes": return t("mode.learn");
     case "setup": return t("btn.start");
     case "journey": return t("jcell.aria", { n: 1, name: I18n.cfgName(Content.JOURNEY[0]) }) + t("jcell.stars", { s: platform.progress.journeyStars[Content.JOURNEY[0]!.id] ?? 0 });
-    case "learn": return I18n.lessonView(Content.tutorialLessons()[0]!).title;
+    case "learn": {
+      const l = Content.tutorialLessons()[0]!;
+      return (platform.progress.tutorialDone[l.id] ? "✓ " : "") + I18n.lessonView(l).title;
+    }
     case "pause": return t("btn.resume");
     case "results": return null;
     case "settings": case "help": return t("btn.done");
@@ -518,7 +521,7 @@ function card(id: string, title: string, desc: string, meta: string, w: number, 
         para(title, inner, "card-title");
         if (desc) ui.style("card-desc").paragraph(desc, inner);
         if (meta) para(meta, inner, "card-desc");
-      }, { spacing: 4, width: inner });
+      }, { spacing: 2, width: inner });
     },
   });
   if (clicked) act();
@@ -526,13 +529,14 @@ function card(id: string, title: string, desc: string, meta: string, w: number, 
 
 function modesScreen(L: Layout): void {
   const stages = Object.keys(platform.progress.journeyStars).length;
+  // Compact spacing keeps the six cards on one page at 768 px (focus does not take inside a scroll area).
   screen("modes", L, (w) => {
     heading(t("modes.title"), "h2", w);
     for (const id of ["learn", "journey", "daily", "practice", "challenge", "score"]) {
       card(`mode-${id}`, t("mode." + id), t("mode." + id + ".d"), t("mode." + id + ".m", { n: stages }), w, () => selectMode(id));
     }
     button(backBtn("btn-modes-back"));
-  });
+  }, { spacing: 8 });
 }
 
 function setupScreen(L: Layout): void {
@@ -596,7 +600,7 @@ function learnScreen(L: Layout): void {
       card(`lesson-${l.id}`, (done ? "✓ " : "") + v.title, v.text, done ? t("les.replay") : t("les.start"), w, () => startLesson(l.id));
     }
     button(backBtn("btn-learn-back"));
-  });
+  }, { spacing: 8 });
 }
 
 function pauseScreen(L: Layout): void {

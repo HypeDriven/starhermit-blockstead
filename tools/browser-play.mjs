@@ -21,6 +21,7 @@ const dir = resolve(args[0] ?? '.');
 const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : def; };
 const shots = opt('--shots', null);
 const waitMs = Number(opt('--wait', '8000'));
+const stepMs = Number(opt('--step', '5000'));
 
 function findPlaywright() {
   const roots = [dir, resolve(dir, '..'), ...readdirSync(resolve(dir, '..')).map((d) => resolve(dir, '..', d))];
@@ -52,7 +53,7 @@ const intoLesson2 = [['click', 4, 4], ['shot', 'title'], ['key', 'Enter'], ['sho
 const views = [
   { name: 'desktop', viewport: { width: 1366, height: 768 }, steps: [...intoLesson2, ['shot', 'lesson2'], ['key', 'Digit1'], ['key', 'Enter'], ['wait', 1500], ['shot', 'placed'], ['key', 'Escape'], ['shot', 'pause']] },
   { name: 'phone', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3, steps: [...intoLesson2, ['shot', 'lesson2'], ['tap', 0.5, 0.5], ['wait', 1500], ['shot', 'tapped'], ['key', 'Escape'], ['shot', 'pause']] },
-  { name: 'landscape', viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3, steps: [['click', 4, 4], ['shot', 'title'], ['key', 'Enter'], ['shot', 'modes'], ['tap', 0.5, 0.42], ['shot', 'learn'], ['tap', 0.5, 0.55], ['wait', 3000], ['shot', 'play'], ['tap', 0.42, 0.5], ['wait', 1500], ['shot', 'tapped']] },
+  { name: 'landscape', viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3, steps: [['click', 4, 4], ['shot', 'title'], ['key', 'Enter'], ['shot', 'modes'], ['key', 'Tab'], ['key', 'Enter'], ['shot', 'learn'], ['key', 'Tab'], ['key', 'Enter'], ['wait', 3000], ['shot', 'play'], ['tap', 0.45, 0.55], ['wait', 1500], ['shot', 'tapped'], ['key', 'KeyG'], ['shot', 'gathered']] },
 ];
 const only = opt('--only', null);
 for (const v of views.filter((x) => !only || x.name === only)) {
@@ -76,7 +77,7 @@ for (const v of views.filter((x) => !only || x.name === only)) {
     if (op === 'click') await page.mouse.click(a, b);
     if (op === 'wait') { await page.waitForTimeout(a); continue; }
     if (op === 'shot' && shots) { mkdirSync(shots, { recursive: true }); await page.screenshot({ path: join(shots, `${v.name}-${a}.png`) }); }
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(stepMs);
   }
   const state = await page.evaluate(() => document.documentElement.dataset.starhermit ?? '');
   const ok = started && state !== 'error' && problems.length === 0;

@@ -191,12 +191,9 @@ export function update(): void {
     if (!stormClip) { stormClip = windClip(700, 0x2a7b); return; }
     if (chords.length < CHORDS.length) { chords.push(chordClip(CHORDS[chords.length]!)); return; }
     if (chirps.length < 3) { chirps.push(chirpClip(1800 + chirps.length * 500, 2 + chirps.length)); return; }
-    if (!calm || !storm) {
-      const [a, b] = windGains();
-      calm = playClip(calmClip, { bus: "effects", gain: a, loop: true });
-      storm = playClip(stormClip, { bus: "effects", gain: b, loop: true });
-      return;
-    }
+    // one new loop a frame (two plays in one frame were occasionally rejected by headless Chrome's mixer)
+    if (!calm) { calm = playClip(calmClip, { bus: "effects", gain: windGains()[0], loop: true }); return; }
+    if (!storm) { storm = playClip(stormClip, { bus: "effects", gain: windGains()[1], loop: true }); return; }
   } catch (e) { console.warn(`beds: ${String(e)}`); started = false; return; }
   if (paused) return;
   const now = context.currentTime;

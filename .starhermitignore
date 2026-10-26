@@ -5,3 +5,4 @@ tools/
 server.js
 data/
 test-results/
+spec.md

@@ -538,10 +538,10 @@
       },
       "radius": 14,
       "padding": {
-        "top": 13,
-        "end": 15,
-        "bottom": 13,
-        "start": 15
+        "top": 9,
+        "end": 14,
+        "bottom": 9,
+        "start": 14
       }
     },
     ".card-title": {
