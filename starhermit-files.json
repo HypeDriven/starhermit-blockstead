@@ -8,7 +8,7 @@
     "cover.jpg": {"sha256": "adcbaf88bb8ee17c25a5542dd5f7ea015ba9323a470fcd72dffadcb34ff81f99", "size": 105007},
     "coverart.png": {"sha256": "756f8887019326eb737e7273eab480f7aec4e2b48f8500a832d0863120fa0a80", "size": 213127},
     "icon.png": {"sha256": "7706e9fbee6fd18e8c064b788c21e482fabe928dacb99791ed83dcaa66cf1e56", "size": 5978},
-    "index.html": {"sha256": "e4bfe09f2da64d5fb1932893d9b0ca6c014d13ba216f63497bc05cafe9c08bc7", "size": 1756},
+    "index.html": {"sha256": "001cbafc8a172c7c053832da1d948a9cdf821c90c88205d6112b70e4ace19a11", "size": 1756},
     "js/content.js": {"sha256": "e5148fa219f6a8854c153700a3fc1685be8b3de86b7cd0d59ec87404b79aafad", "size": 21034},
     "js/i18n.js": {"sha256": "6895566ec6532e0a101fe586b1e1302974e6737ee1ea86c23bc3c658cffad263", "size": 117817},
     "js/migrate.js": {"sha256": "fc6438d27b6a425ae8eb0e3b76c1f7abd069c2592b1f31a7ecfda4dc1ce8c3ee", "size": 3818},
@@ -54,7 +54,7 @@
     "sfx/weather-cloud.opus": {"sha256": "4b11cb8e477ca7e564f514bad42e4f98385be7178a176c9c42956a07600569f1", "size": 33797},
     "sfx/weather-rain.opus": {"sha256": "60144d119e6529adae9a02ec9fe49fdab481384da60c123f2dc88728ab6dcd46", "size": 33750},
     "sfx/win.opus": {"sha256": "f0d8e915e9f5f8f2a5d07d59f623726fe3f3d2921581b8f1ffb5d08ff2f71793", "size": 40287},
-    "starhermit.txt": {"sha256": "d923c08fbc39da671ae7aee99b2ca146541b7ecbbbf35bf0db9342c7193b2fcd", "size": 2317}
+    "starhermit.txt": {"sha256": "1b7b3c14be4837f0cd14a1432293080868a269d9b9f036981f5b1d75a8c86f35", "size": 2317}
   },
   "excluded": ["data/", "node_modules/", "package-lock.json", "package.json", "server.js", "spec.md", "tests/", "tools/", "tsconfig.json"],
   "format": 1
