@@ -741,7 +741,8 @@ export function applyLook(next: Look): void {
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8 },
   };
   // High threshold: only lamps, glints and sunlit glass bloom.
-  renderer.bloom = next.bloom ? { strength: 0.4, radius: 0.35, threshold: 0.95, resolution: next.budget.bloomRes } : null;
+  // The page's r160 UnrealBloomPass strength squared (minor 29 bloom follows r185).
+  renderer.bloom = next.bloom ? { strength: 0.16, radius: 0.35, threshold: 0.95, resolution: next.budget.bloomRes } : null;
   renderer.grade = gradeSettings();
   renderer.antialias = next.antialias;
   updateMats();
