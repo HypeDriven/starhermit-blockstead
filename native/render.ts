@@ -23,15 +23,16 @@
 // - The sky dome's GLSL ShaderMaterial is WGSL; IcosahedronGeometry clouds
 //   and DodecahedronGeometry pebbles are low-segment spheres;
 //   RoundedBoxGeometry is rounded.ts.
-// - The sun's fitted orthographic shadow box is the engine's view-based
-//   directional shadow (`shadow.distance`).
-// - Light intensities are three.js r160's divided by π (the engine's
-//   convention). The procedural surface textures are DataTextures of the
+// - Light intensities, shadow values and the PMREM RoomEnvironment(renderer)
+//   are three.js r160's as the page had them (engine minor 28), with the
+//   sun's shadow box fitted around the plot (fitShadow). The block materials
+//   get the room as their own envMap so their envMapIntensity applies as
+//   r160 did with scene.environment. The procedural surface textures are DataTextures of the
 //   same grey patterns (sRGB, as the browser build's CanvasTextures were).
 import {
   ACESFilmicToneMapping, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CircleGeometry, Color, ConeGeometry,
   CylinderGeometry, DataTexture, DirectionalLight, DoubleSide, Fog, Group, HemisphereLight, InstancedMesh, Matrix4, Mesh,
-  MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PMREMGenerator, PerspectiveCamera, Points, PointsMaterial,
+  MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OrthographicCamera, PCFSoftShadowMap, PMREMGenerator, PerspectiveCamera, Points, PointsMaterial,
   Raycaster, RepeatWrapping, RingGeometry, RoomEnvironment, SRGBColorSpace, ShaderMaterial, SphereGeometry, TorusGeometry,
   Vector3, pointerToNdc, renderer, scene,
 } from "starhermit:scene";
@@ -43,8 +44,6 @@ import { roundedBox } from "./rounded.ts";
 const PI = Math.PI;
 const CELL = 1;
 const FRAMING = { phi: 0.95, theta: 0.65 };
-/** The RoomEnvironment's brightness against the browser build's (matched by eye, as bistro-builder found). */
-const ENV_INTENSITY = 0.3;
 const LOOK_AT = new Vector3(0, 0.8, 0);
 
 const camera = new PerspectiveCamera(38, 16 / 9, 0.1, 200);
@@ -55,14 +54,20 @@ let highVis = false;
 let built = false;
 
 // --- lights ---------------------------------------------------------------------------
-const hemi = new HemisphereLight(0xcfe8ff, 0x6a7a55, 0.7 / PI);
+const hemi = new HemisphereLight(0xcfe8ff, 0x6a7a55, 0.7);
 const SUN_DIR = new Vector3(8, 14, 6).normalize();
-const sun = new DirectionalLight(0xfff2cc, 2.4 / PI);
+const sun = new DirectionalLight(0xfff2cc, 2.4);
 sun.position.copy(SUN_DIR).multiplyScalar(20);
 sun.shadow.bias = -0.0008;
-sun.shadow.normalBias = 1;
-sun.shadow.radius = 2; // PCFSoftShadowMap's soft edge
-sun.shadow.distance = 26;
+sun.shadow.normalBias = 0.02;
+/** Shadow box fitted tightly around the plot (blocks included), as the browser build's. */
+function fitShadow(): void {
+  const half = Math.hypot(Math.max(plotW, 4), Math.max(plotH, 4)) / 2 + 0.9;
+  const sc = sun.shadow.camera as OrthographicCamera;
+  sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half;
+  sc.near = Math.max(0.5, 20 - half - 6); sc.far = 20 + half + 4;
+  sc.updateProjectionMatrix();
+}
 let hemiBase = 0.7;
 
 // --- procedural surface textures (grey, multiplied by the material colour) ---------------
@@ -188,6 +193,9 @@ function updateMats(): void {
   mats.glass.clearcoat = gl ? 0.8 : 0; mats.lamp.clearcoat = gl ? 0.6 : 0; mats.water.clearcoat = gl ? 0.3 : 0;
   for (const k of LIT) mats[k].envMapIntensity = 0.35;
   mats.glass.envMapIntensity = 0.6; mats.water.envMapIntensity = 0.45; mats.lamp.envMapIntensity = 0.5;
+  // r160 scaled scene.environment by these; the engine (as three r163+) only scales a material's own envMap.
+  const env = look?.reflections ? envTex : null;
+  for (const m of Object.values(mats)) if (m instanceof MeshStandardMaterial) m.envMap = env;
 }
 
 // --- shared geometry ---------------------------------------------------------------------
@@ -368,6 +376,7 @@ function buildDecor(seed: number): void {
     decorGroup.add(hill);
   }
   envGroup.add(decorGroup);
+  fitShadow();
 }
 
 // --- the sky dome (WGSL port of the browser build's sky gradient) and clouds -------------------
@@ -455,9 +464,9 @@ function buildParticles(): void {
 
 function applyAtmosphere(): void {
   const dim = weather === "rain" ? 0.45 : weather === "cloud" ? 0.7 : 1;
-  sun.intensity = (2.4 * palette.sunInt * dim) / PI;
+  sun.intensity = 2.4 * palette.sunInt * dim;
   sun.color.set(palette.sun);
-  hemi.intensity = (hemiBase * (weather === "rain" ? 0.7 : 1)) / PI;
+  hemi.intensity = hemiBase * (weather === "rain" ? 0.7 : 1);
   const fogC = new Color(palette.fog).multiplyScalar(weather === "sun" ? 1 : 0.85);
   scene.fog = new Fog(fogC, 26, 60);
   const bg = new Color(palette.sky).lerp(fogC, weather === "sun" ? 0.15 : 0.55);
@@ -564,6 +573,8 @@ export function setFreeRect(rect: { l: number; t: number; r: number; b: number }
   freeKey = key;
   free = rect;
   winW = Math.max(1, w); winH = Math.max(1, h);
+  camera.aspect = winW / winH;
+  camera.updateProjectionMatrix();
   if (view) camTarget.dist = fitDistance(camTarget.theta, camTarget.phi);
   if (!introDone && view) {
     // the small intro swoop (skipped under reduced motion)
@@ -691,7 +702,7 @@ export function skipAnimations(): void {
 let envTex: Texture | null = null;
 function buildEnvironment(): void {
   if (envTex) return;
-  try { envTex = new PMREMGenerator().fromScene(new RoomEnvironment(), 0.04).texture; }
+  try { envTex = new PMREMGenerator(renderer).fromScene(new RoomEnvironment(renderer), 0.04).texture; }
   catch (e) { console.warn("environment:", e instanceof Error ? e.message : String(e)); }
 }
 function gradeSettings(): typeof renderer.grade {
@@ -713,12 +724,12 @@ export function applyLook(next: Look): void {
   if (!built) setup();
   const shadows = next.shadows > 0;
   renderer.shadowMap.enabled = shadows;
+  renderer.shadowMap.type = PCFSoftShadowMap;
   sun.castShadow = shadows;
   if (shadows) sun.shadow.mapSize = next.shadows;
   if (next.reflections) {
     buildEnvironment();
     scene.environment = envTex;
-    scene.environmentIntensity = ENV_INTENSITY;
     hemiBase = 0.45;
   } else {
     scene.environment = null;

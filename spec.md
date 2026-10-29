@@ -11,9 +11,9 @@ Present-tense description of the shipped game. Every statement below is true of 
 | Genre | Solo construction puzzle / relaxed builder with ranked seeds |
 | Players | 1; scores compared on device-local boards and, when signed in, the StarHermit `high-score` board |
 | Session | 2–4 min per journey stage, 5–10 min for a daily or challenge, open-ended in score chase |
-| Platforms | The StarHermit engine 1.24.0 (host API 1.21): natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime; keyboard, mouse, touch, gamepad |
+| Platforms | The StarHermit engine 1.26.1: natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime; keyboard, mouse, touch, gamepad |
 | Rendering | `starhermit:scene` (three.js-like) with the runtime's ambient occlusion, bloom, grade and antialiasing per graphics level; the HUD and screens in `starhermit:ui` |
-| Hosting | A StarHermit script game package (`starhermit.txt`: `engine.entry=native/main.ts`, `engine.version=1.24.0`, `engine.minor=16`, capabilities `platform,storage,clipboard`) plus the platform script `score-script.js` (`server=`); `index.html` is the engine's web loader written by `npm run package`; `server.js` is the local dev server |
+| Hosting | A StarHermit script game package (`starhermit.txt`: `engine.entry=native/main.ts`, `engine.version=1.26.1`, `engine.minor=28`, capabilities `platform,storage,clipboard`) plus the platform script `score-script.js` (`server=`); `index.html` is the engine's web loader written by `npm run package`; `server.js` is the local dev server |
 
 ### File map
 
@@ -219,7 +219,7 @@ Colour is never the only cue: each block has an icon (🪵 🪨 🧊 🌿 🏮 �
 
 **Motion.** Camera uses an exponential spring (`1 − e^(−7·dt)`), interruptible, with a 6-unit intro swoop; placement is a 0.25 s scale pop on the new block; rain is a particle field that fades in over the weather change. Weather advances every 40 s of play through a seeded 6-entry order of sun/sun/cloud/rain (sun always first); cloud dims the sun to 70 %, rain to 45 % and lifts the fog blend. The title showcase turns slowly. **Reduced motion** (the runtime's accessibility option): camera snaps, no pops, no swoop, scenery and rain still.
 
-**Graphics.** ACES filmic tone mapping (exposure 1.05), a hemisphere fill and a sun with the engine's view-based soft shadow (light intensities three.js's ÷ π). The runtime's graphics level (Options › Graphics, Auto by default) picks the quality tier (`frame().quality`) and level; `native/quality.ts` maps them to the browser build's presets:
+**Graphics.** ACES filmic tone mapping (exposure 1.05), a hemisphere fill and a sun whose soft shadow box is fitted around the plot (three.js r160's intensities and shadow values, engine minor 28; reflections from `RoomEnvironment(renderer)` given to the block materials as their own envMap at the page's `envMapIntensity`). The runtime's graphics level (Options › Graphics, Auto by default) picks the quality tier (`frame().quality`) and level; `native/quality.ts` maps them to the browser build's presets:
 
 | Tier | Shadows | AO | Bloom / grade | AA | Reflections | Detail | Particles | Scenery motion |
 |---|---|---|---|---|---|---|---|---|
