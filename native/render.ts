@@ -710,7 +710,7 @@ function gradeSettings(): typeof renderer.grade {
   // (0.18 of c²(3−2c)), saturation 1.1, cool shadows / warm highlights, and
   // the 0.2 vignette (none in high visibility).
   return look?.grade ? {
-    space: "display", contrast: 0.09, saturation: 1.1,
+    space: "display", contrastCurve: "s", contrast: 0.18, saturation: 1.1,
     shadows: [0.97, 0.99, 1.04], highlights: [1.03, 1.0, 0.96], split: [0.2, 0.8],
     vignette: { amount: highVis ? 0 : 0.2, inner: 0.4, outer: 0.9 },
   } : null;
@@ -741,8 +741,8 @@ export function applyLook(next: Look): void {
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8 },
   };
   // High threshold: only lamps, glints and sunlit glass bloom.
-  // The page's r160 UnrealBloomPass strength squared (minor 29 bloom follows r185).
-  renderer.bloom = next.bloom ? { strength: 0.16, radius: 0.35, threshold: 0.95, resolution: next.budget.bloomRes } : null;
+  // The page's r160 UnrealBloomPass at its own strength (bloom model r160).
+  renderer.bloom = next.bloom ? { model: "r160", strength: 0.4, radius: 0.35, threshold: 0.95, resolution: next.budget.bloomRes } : null;
   renderer.grade = gradeSettings();
   renderer.antialias = next.antialias;
   updateMats();
