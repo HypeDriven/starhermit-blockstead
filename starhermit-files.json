@@ -21,7 +21,7 @@
     "native/i18n.ts": {"sha256": "9650f6e89422f4e0deee8b7016069e067e63c650909d4c4a5663e0d2d556866c", "size": 2452},
     "native/main.ts": {"sha256": "caf929fd083bc3ad5d81a49c7da89d4bcb647c77d2d2ce88b17855f9c7794d98", "size": 37454},
     "native/platform.ts": {"sha256": "22ebb124b3043320c2ed6d9488a13d0ff14c34cfed06ffb9bd9ca0dd7c8b3f65", "size": 10164},
-    "native/quality.ts": {"sha256": "70d0a0766bc7ec2f396b769e1b11e9b932135fe01259a953f6c2d98de5ddf56b", "size": 4305},
+    "native/quality.ts": {"sha256": "f6436c1f6ea41ad293da441999343e934cb0db777c425fbe407c24f8d980d273", "size": 4533},
     "native/render.ts": {"sha256": "d81ce1f77ece772b4be1a3e27c2a08e7f1a800e4318ad7cf39f5e36f80fd7567", "size": 38711},
     "native/screens.ts": {"sha256": "bc16874bac05a5fd4a778a421cd983bcbe9c1f066e3021aaa90ae36ae4fc1c89", "size": 42632},
     "native/style.ts": {"sha256": "52286ce5c591d7952257be8e8297197f61560c79e797237c1e3f4655a8d5a9bd", "size": 2611},
