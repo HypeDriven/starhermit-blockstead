@@ -47,7 +47,7 @@ const LOOK_AT = new Vector3(0, 0.8, 0);
 
 const camera = new PerspectiveCamera(38, 16 / 9, 0.1, 200);
 let look: Look | null = null;
-let BUD: Budget = { glossy: true, bevel: 2, texture: 128, rain: 1000, motes: 30, clouds: 5, bloomRes: 0.5 };
+let BUD: Budget = { glossy: true, bevel: 2, texture: 128, rain: 1000, motes: 30, clouds: 5 };
 let reducedMotion = false;
 let highVis = false;
 let built = false;
@@ -725,6 +725,7 @@ export function applyLook(next: Look): void {
   renderer.shadowMap.enabled = shadows;
   renderer.shadowMap.type = PCFSoftShadowMap;
   sun.castShadow = shadows;
+  // Since minor 23 the engine keeps the game's mapSize whatever the level, so the level's size is set here.
   if (shadows) sun.shadow.mapSize = next.shadows;
   if (next.reflections) {
     buildEnvironment();
@@ -734,14 +735,17 @@ export function applyLook(next: Look): void {
     scene.environment = null;
     hemiBase = 0.7;
   }
-  renderer.ao = next.ao === "off" ? null : {
+  // The level's AO (levelSettings()): resolution and samples; full-resolution AO
+  // (the engine's "high") takes the browser's Ultra denoise radius.
+  const ao = next.ao, full = !!ao && ao.resolution >= 1;
+  renderer.ao = ao && {
     blendIntensity: 0.75, radius: 0.55, distanceExponent: 1.5, thickness: 1.0, scale: 1.0,
-    samples: next.ao === "high" ? 16 : 8,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8 },
+    samples: ao.samples, resolution: ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: ao.denoiseSamples },
   };
   // High threshold: only lamps, glints and sunlit glass bloom.
   // The page's r160 UnrealBloomPass at its own strength (bloom model r160).
-  renderer.bloom = next.bloom ? { model: "r160", strength: 0.4, radius: 0.35, threshold: 0.95, resolution: next.budget.bloomRes } : null;
+  renderer.bloom = next.bloom !== null ? { model: "r160", strength: 0.4, radius: 0.35, threshold: 0.95, resolution: next.bloom } : null;
   renderer.grade = gradeSettings();
   renderer.antialias = next.antialias;
   updateMats();

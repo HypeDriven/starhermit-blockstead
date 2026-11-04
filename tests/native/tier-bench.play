@@ -1,0 +1,39 @@
+# Graphics-tier bench (tools/engine-tier-bench.mjs): a Practice round on the
+# valley with blocks placed, the camera orbiting, ~600 measured frames.
+until 300 Blockstead
+frames 150
+click Play
+until 60 Choose a mode
+frames 10
+click Practice
+until 60 Set up
+frames 10
+click Start
+until 120 Moves 0
+key KeyG 2
+frames 10
+key Digit1 2
+frames 6
+key Enter 2
+frames 10
+key KeyG 2
+frames 10
+key Digit1 2
+frames 6
+key Enter 2
+frames 120
+measure start
+key KeyG 2
+frames 10
+key Digit1 2
+frames 6
+key Enter 2
+frames 150
+key KeyH 2
+frames 150
+key KeyT 2
+frames 150
+key KeyT 2
+frames 124
+measure stop
+expect Moves

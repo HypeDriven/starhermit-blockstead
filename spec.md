@@ -219,16 +219,16 @@ Colour is never the only cue: each block has an icon (🪵 🪨 🧊 🌿 🏮 �
 
 **Motion.** Camera uses an exponential spring (`1 − e^(−7·dt)`), interruptible, with a 6-unit intro swoop; placement is a 0.25 s scale pop on the new block; rain is a particle field that fades in over the weather change. Weather advances every 40 s of play through a seeded 6-entry order of sun/sun/cloud/rain (sun always first); cloud dims the sun to 70 %, rain to 45 % and lifts the fog blend. The title showcase turns slowly. **Reduced motion** (the runtime's accessibility option): camera snaps, no pops, no swoop, scenery and rain still.
 
-**Graphics.** ACES filmic tone mapping (exposure 1.05), a hemisphere fill and a sun whose soft shadow box is fitted around the plot (three.js r160's intensities and shadow values, engine minor 28; reflections from `RoomEnvironment(renderer)` given to the block materials as their own envMap at the page's `envMapIntensity`). The runtime's graphics level (Options › Graphics, Auto by default) picks the quality tier (`frame().quality`) and level; `native/quality.ts` maps them to the browser build's presets:
+**Graphics.** ACES filmic tone mapping (exposure 1.05), a hemisphere fill and a sun whose soft shadow box is fitted around the plot (three.js r160's intensities and shadow values, engine minor 28; reflections from `RoomEnvironment(renderer)` given to the block materials as their own envMap at the page's `envMapIntensity`). The runtime's graphics level (Options › Graphics, Auto by default) picks the level; the engine-owned effects (shadows and their map size, AO, bloom resolution, grade, anti-aliasing) are the level's own (`levelSettings()`), and `native/quality.ts` keys the game's art to the level's quality tier (the browser build's presets). At each tier's anchor level:
 
 | Tier | Shadows | AO | Bloom / grade | AA | Reflections | Detail | Particles | Scenery motion |
 |---|---|---|---|---|---|---|---|---|
-| Low | off | off | off | MSAA | off | plain boxes, 5 trees, no sky dome | off | still |
+| Low | off | off | off | none | off | plain boxes, 5 trees, no sky dome | off | still |
 | Balanced | 1024 | off | on | FXAA | RoomEnvironment | rounded textured blocks, 14 trees, flowers, pebbles, pond rim and ripples, sky dome, clouds | low (40 % rain) | animated |
-| High | 2048 | on | on | SMAA | on | as Balanced | high, motes | animated |
-| Ultra | 4096 | high | on | MSAA | on | as Balanced | high, motes | animated |
+| High | 2048 | ½ resolution, 8 samples | on | SMAA | on | as Balanced | high, motes | animated |
+| Ultra | 4096 | full resolution, 16 samples | on | MSAA | on | as Balanced | high, motes | animated |
 
-Budgets per tier as the browser build tuned them for 60 FPS: clearcoat (High, Ultra), bevel segments 1/2/2/4, texture 64/128/128/256 px, rain 600/1000/1600/3200 and motes 0/30/60/120 (scaled up to 2× by the level within the tier), clouds 3/5/7/10, bloom at ½/½/¾/full resolution. The runtime owns render scale, adaptive resolution, the frame-rate limit and its readout. Bloom (threshold 0.95) catches lamps and glints; the grade is the browser build's S-curve, saturation 1.1, cool shadows / warm highlights and a 0.2 vignette (none in high visibility). The frosted-glass HUD of High/Ultra is not ported (panels keep their backing).
+Budgets per tier as the browser build tuned them for 60 FPS: clearcoat (High, Ultra), bevel segments 1/2/2/4, texture 64/128/128/256 px, rain 600/1000/1600/3200 and motes 0/30/60/120 (scaled by the level's particle budget against the tier's anchor, up to 2×), clouds 3/5/7/10; higher levels within a tier get the level's larger shadow map, AO and bloom. The runtime owns render scale, adaptive resolution, the frame-rate limit and its readout. Bloom (threshold 0.95) catches lamps and glints; the grade is the browser build's S-curve, saturation 1.1, cool shadows / warm highlights and a 0.2 vignette (none in high visibility). The frosted-glass HUD of High/Ultra is not ported (panels keep their backing).
 
 **Visual assets.** Title key art (`assets/key-art.webp`, also `coverart.png`), win and loss illustrations (`assets/results-*.webp`), `icon.png`. All 3D geometry is procedural.
 
