@@ -17,8 +17,9 @@
 // fair weather (300 Hz) and one for rain (700 Hz) crossfaded on a weather
 // change — and the synthesized stand-ins it played while a sample loaded are
 // not ported: the engine's browser runtime drops clip loads and plays while
-// a synthesis graph changes (the arrow-exodus port's finding). Clips load
-// once the mixer runs (natively at once, in a browser after the first press).
+// a synthesis graph changes (the arrow-exodus port's finding). The one-shot
+// clips all load in onStart; the beds start once the mixer runs (in a browser
+// after the first press).
 import { context, createClip, loadClip, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
 import type { RngStream } from "./classic.ts";
 
@@ -36,13 +37,13 @@ const CAPTIONED = new Set(SAMPLES.filter((n) => n !== "ui" && n !== "deselect" &
 const clips = new Map<string, AudioClip>();
 let onCaption: ((event: string) => void) | null = null;
 let avRng: RngStream | null = null;
-let wantClips = false;
 
-function load(name: string): void {
-  loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
+/** Loads every clip at once (onStart); a cue whose clip is still loading is skipped. */
+export function loadSfx(): void {
+  for (const name of SAMPLES) {
+    loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
+  }
 }
-/** Asks for the clips; they load once the mixer runs (see update). */
-export function loadSfx(): void { wantClips = true; }
 export function setOnCaption(cb: (event: string) => void): void { onCaption = cb; }
 export function setAvRng(rng: RngStream): void { avRng = rng; }
 
@@ -54,7 +55,7 @@ export function play(name: string): void {
   const bus: Bus = name === "ui" ? "interface" : "effects";
   const pitch = VARIANT.has(name) ? 0.94 + (avRng ? avRng.next() : Math.random()) * 0.12 : 1;
   try { playClip(clip, { bus, gain: LEVEL.effects, pitch }); }
-  catch { clips.delete(name); load(name); } // a clip the mixer lost: load it again
+  catch { /* the mixer is full this frame: skip it */ }
 }
 
 // -- rendered beds ------------------------------------------------------------------------
@@ -175,17 +176,11 @@ export function setWeather(w: Weather): void {
   fadeWind(1.2);
 }
 
-/** Each frame: what waited for the mixer, one rendered clip a frame, then
+/** Each frame once the mixer runs: one rendered clip a frame, then
  * the pad's next chord every 5.6 s and a bird phrase every 3–10 s of mixer
  * time in fair weather. */
 export function update(): void {
-  if (context.state !== "running") return;
-  if (wantClips) {
-    wantClips = false;
-    for (const name of SAMPLES) load(name);
-    return;
-  }
-  if (!started) return;
+  if (context.state !== "running" || !started) return; // starting the beds still waits for the mixer
   try {
     if (!calmClip) { calmClip = windClip(300, 0x51ed); return; }
     if (!stormClip) { stormClip = windClip(700, 0x2a7b); return; }

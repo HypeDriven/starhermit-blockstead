@@ -26,7 +26,7 @@ Present-tense description of the shipped game. Every statement below is true of 
 | `native/audio.ts` | Clips on the runtime's mixer, rendered wind / birds / pad, captions |
 | `native/platform.ts` | Engine save (progress) with cross-device merge and the browser build's cloud save migrated, the game's settings, player names, invite link, high-score posting through `score-script.js` |
 | `native/classic.ts` | Loads the shared `js/*.js` as classic scripts (localStorage shim over device storage) and types them |
-| `native/i18n.ts`, `native/style.ts`, `native/rounded.ts` | Locale from the interface language; the converted style sheet and palette tokens; RoundedBoxGeometry |
+| `native/i18n.ts`, `native/style.ts` | Locale from the interface language; the converted style sheet and palette tokens |
 | `js/rng.js`, `js/rules.js`, `js/content.js`, `js/session.js`, `js/store.js` | The pure game (unchanged from the browser build, shared with the Node tests and `server.js`) |
 | `js/i18n.js` | String tables in nine locales (`BLI18n`), account strings included |
 | `js/migrate.js` | Engine save document, the browser build's cloud save and settings as the engine client takes them over |

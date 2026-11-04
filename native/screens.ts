@@ -67,19 +67,9 @@ function button(b: Btn, width: number | null = null): void {
 }
 /** Buttons at their own widths in rows that wrap at `width` (CSS flex-wrap). */
 function flow(label: string, list: Btn[], width: number, align: "start" | "center" = "start", gap = 10): void {
-  const rows: Btn[][] = [[]];
-  let used = 0;
-  for (const b of list) {
-    const bw = Math.min(width, buttonWidth(b.text, b.style ?? PLAIN));
-    if (rows[rows.length - 1]!.length && used + gap + bw > width) { rows.push([]); used = 0; }
-    used += (rows[rows.length - 1]!.length ? gap : 0) + bw;
-    rows[rows.length - 1]!.push(b);
-  }
-  ui.column(label, () => {
-    rows.forEach((row, ri) => ui.row(`${label}-r${ri}`, () => {
-      for (const b of row) button(b, buttonWidth(b.text, b.style ?? PLAIN) > width ? width : null);
-    }, { spacing: gap, align: "center" }));
-  }, { spacing: gap, align: align === "center" ? "center" : "start", width });
+  ui.row(label, () => {
+    for (const b of list) button(b, buttonWidth(b.text, b.style ?? PLAIN) > width ? width : null);
+  }, { wrap: true, width, gap, justify: align, align: "center" });
 }
 /** Text up to `width` wide: one label when it fits, else a paragraph. */
 function para(text: string, width: number, cls?: string, id?: string, center = false): void {
@@ -478,20 +468,12 @@ function titleScreen(L: Layout): void {
       mini("btn-profile", t("btn.profile"), "", () => showScreen("profile")),
     ];
     // The daily and Journey buttons carry a small second line (countdown, stages done).
-    const rows: (typeof second)[] = [[]];
-    let used = 0;
-    const bw = (b: (typeof second)[number]): number => Math.max(buttonWidth(b.text, PLAIN), b.sub ? textWidth(b.sub, "mini") + 34 : 0);
-    for (const b of second) {
-      if (rows[rows.length - 1]!.length && used + 10 + bw(b) > w) { rows.push([]); used = 0; }
-      used += (rows[rows.length - 1]!.length ? 10 : 0) + bw(b);
-      rows[rows.length - 1]!.push(b);
-    }
-    ui.column("title-secondary", () => rows.forEach((row, ri) => ui.row(`title-secondary-${ri}`, () => {
-      for (const b of row) {
+    ui.row("title-secondary", () => {
+      for (const b of second) {
         const opts: ui.ButtonOptions = b.sub ? { content: () => { ui.label(b.text); ui.style("mini").label(b.sub); } } : {};
         if (ui.style("btn").id(b.id).button(b.text, opts)) b.act();
       }
-    }, { spacing: 10, align: "center" })), { spacing: 10, align: "center", width: w });
+    }, { wrap: true, width: w, gap: 10, justify: "center", align: "center" });
     flow("title-tertiary", [
       { id: "btn-help", text: t("btn.howto"), style: ["btn", "btn-ghost"], act: () => showScreen("help") },
       { id: "btn-settings", text: t("btn.settings"), style: ["btn", "btn-ghost"], act: () => showScreen("settings") },

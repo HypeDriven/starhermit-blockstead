@@ -22,7 +22,7 @@
 //   same curve, tints and vignette.
 // - The sky dome's GLSL ShaderMaterial is WGSL; IcosahedronGeometry clouds
 //   and DodecahedronGeometry pebbles are low-segment spheres;
-//   RoundedBoxGeometry is rounded.ts.
+//   RoundedBoxGeometry is the engine's (three's addon).
 // - Light intensities, shadow values and the PMREM RoomEnvironment(renderer)
 //   are three.js r160's as the page had them (engine minor 28), with the
 //   sun's shadow box fitted around the plot (fitShadow). The block materials
@@ -33,13 +33,12 @@ import {
   ACESFilmicToneMapping, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CircleGeometry, Color, ConeGeometry,
   CylinderGeometry, DataTexture, DirectionalLight, DoubleSide, Fog, Group, HemisphereLight, InstancedMesh, Matrix4, Mesh,
   MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OrthographicCamera, PCFSoftShadowMap, PMREMGenerator, PerspectiveCamera, Points, PointsMaterial,
-  Raycaster, RepeatWrapping, RingGeometry, RoomEnvironment, SRGBColorSpace, ShaderMaterial, SphereGeometry, TorusGeometry,
+  Raycaster, RepeatWrapping, RingGeometry, RoomEnvironment, RoundedBoxGeometry, SRGBColorSpace, ShaderMaterial, SphereGeometry, TorusGeometry,
   Vector3, pointerToNdc, renderer, scene,
 } from "starhermit:scene";
 import type { Material, Object3D, Texture } from "starhermit:scene";
 import type { Block, Palette, RulesEvent, State } from "./classic.ts";
 import type { Budget, Look } from "./quality.ts";
-import { roundedBox } from "./rounded.ts";
 
 const PI = Math.PI;
 const CELL = 1;
@@ -209,7 +208,7 @@ function roundBlock(segs: number, top: boolean): BufferGeometry {
   const k = (top ? "t" : "b") + segs;
   let g = roundGeos.get(k);
   if (!g) {
-    g = top ? roundedBox(0.5, 0.28, 0.5, segs, 0.05) : roundedBox(0.92, 0.92, 0.92, segs, 0.07);
+    g = top ? new RoundedBoxGeometry(0.5, 0.28, 0.5, segs, 0.05) : new RoundedBoxGeometry(0.92, 0.92, 0.92, segs, 0.07);
     roundGeos.set(k, g);
   }
   return g;
