@@ -23,8 +23,6 @@ Present-tense description of the shipped game. Every statement below is true of 
 | `native/screens.ts` | HUD (top bar, goals card, block tray, actions tray, guidance line, lesson banner, toast, captions, text board) and every screen in `starhermit:ui`; the four layouts; the free rectangle the valley is framed into |
 | `native/render.ts` | The valley in `starhermit:scene`: tiles, blocks, seeded decor, WGSL sky dome, clouds, rain and motes, weather, target discs and ghost, orbit camera spring with `setViewOffset` framing, column-box picking, the look per graphics level |
 | `native/quality.ts` | The browser build's four presets and budgets keyed by the runtime's quality tier and level |
-
-Low (quantum) keeps MSAA instead of the level's "off" until engine 1.36.2: engine 1.36.1 recolours fog, haze and translucent overlays without anti-aliasing.
 | `native/audio.ts` | Clips on the runtime's mixer, rendered wind / birds / pad, captions |
 | `native/platform.ts` | Engine save (progress) with cross-device merge and the browser build's cloud save migrated, the game's settings, player names, invite link, high-score posting through `score-script.js` |
 | `native/classic.ts` | Loads the shared `js/*.js` as classic scripts (localStorage shim over device storage) and types them |
