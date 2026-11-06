@@ -1,48 +1,57 @@
-// Localization: the browser build's string tables (js/i18n.js, the nine
-// StarHermit locales) in the interface language the runtime reports
-// (preferences().language: the player's choice in Options › Language, else
-// the account's preferred language or the device's). The runtime's Options
-// replaced the game's own Language menu (sh-language.js).
-import { onPreferencesChange, preferences } from "starhermit:engine";
+// Localization: assets/strings.json (the nine StarHermit locales) on the
+// engine's string tables, in the interface language the runtime reports
+// (Options › Language, else the account's or the device's); account lines the
+// engine has are its `starhermit.*`.
+import { strings } from "starhermit:engine";
 import * as ui from "starhermit:ui";
-import { I18n } from "./classic.ts";
+import type { Achievement, Cfg, Lesson, Theme } from "./classic.ts";
 
-const PRIMARY: Record<string, string> = { en: "en-US", es: "es-419", de: "de-DE", fr: "fr-FR", pt: "pt-BR", it: "it-IT" };
-
-/** The shipped locale nearest a BCP 47 tag (en-GB, es-ES and fr-CA by region). */
-export function pickLocale(tag: string): string {
-  const t = String(tag || "en-US");
-  const exact = I18n.LOCALES.find((l) => l.toLowerCase() === t.toLowerCase());
-  if (exact) return exact;
-  const lang = t.split("-")[0]!.toLowerCase();
-  if (lang === "en" && /-(gb|ie|au|nz|za|in)$/i.test(t)) return "en-GB";
-  if (lang === "es" && /-es$/i.test(t)) return "es-ES";
-  if (lang === "fr" && /-ca$/i.test(t)) return "fr-CA";
-  return PRIMARY[lang] ?? "en-US";
-}
-
-let locale = "";
+strings.load("assets/strings.json");
+strings.defaultLocale = "en-US";
+ui.setLanguage(strings.locale);
 const listeners = new Set<() => void>();
-function apply(tag: string): void {
-  const next = pickLocale(tag);
-  if (next === locale) return;
-  locale = next;
-  I18n.setLocale(locale);
-  ui.setLanguage(locale);
-  for (const fn of listeners) fn();
-}
-apply(preferences().language);
-onPreferencesChange((p) => apply(p.language));
+strings.onChange((locale) => { ui.setLanguage(locale); for (const fn of listeners) fn(); });
 
-export function currentLocale(): string { return locale; }
+export function currentLocale(): string { return strings.locale; }
 /** fn() after the interface language changed. */
 export function onLocaleChange(fn: () => void): void { listeners.add(fn); }
 
 type Vars = Record<string, string | number>;
 /** A game string by key in the player's language; `{name}` placeholders from vars. */
 export function t(key: string, vars?: Vars | null, fallback?: string): string {
-  return I18n.t(key, vars ?? null, fallback);
+  if (fallback !== undefined && !strings.has(key)) return fallback;
+  return strings.t(key, vars ?? undefined);
 }
+
+/** Content names in the current language (content keeps English names as data). */
+export const I18n = {
+  blockLabel(id: string): string { return t("block." + id, null, id); },
+  cfgName(cfg: Cfg | null | undefined): string {
+    if (!cfg) return "";
+    if (cfg.kind === "journey") return t("lvl." + cfg.id, null, cfg.name);
+    if (cfg.kind === "challenge") return t("ch." + cfg.id, null, cfg.name);
+    if (cfg.kind === "practice") return t("prac." + cfg.id, null, cfg.name);
+    if (cfg.kind === "score") return t("score.name", null, cfg.name);
+    if (cfg.kind === "daily") return t("daily.name", { date: cfg.date ?? "" });
+    if (cfg.kind === "tutorial") return t("les." + cfg.id, null, cfg.name || cfg.id);
+    return cfg.name || cfg.id || "";
+  },
+  cfgIntro(cfg: Cfg | null | undefined): string {
+    if (!cfg || !cfg.intro) return "";
+    if (cfg.kind === "journey") return t("intro." + cfg.id, null, cfg.intro);
+    if (cfg.kind === "challenge") return t("chi." + cfg.id, null, cfg.intro);
+    if (cfg.kind === "score") return t("score.intro", null, cfg.intro);
+    if (cfg.kind === "daily") return t("daily.intro", null, cfg.intro);
+    return cfg.intro;
+  },
+  lessonView(l: Lesson): { id: string; title: string; text: string; goal: Lesson["goal"] } {
+    return { id: l.id, goal: l.goal, title: t("les." + l.id, null, l.title), text: t("lest." + l.id, null, l.text) };
+  },
+  achievementView(a: Achievement): { key: string; name: string; desc: string } {
+    return { key: a.key, name: t("ach." + a.key, null, a.name), desc: t("achd." + a.key, null, a.desc) };
+  },
+  themeName(th: Theme): string { return t("theme." + th.id, null, th.name); },
+};
 
 // Colour emoji are not in the runtime's fonts (they draw as boxes): the
 // string tables' icons (⛏ in Help's Gather line) are dropped where text is

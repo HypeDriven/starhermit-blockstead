@@ -8,7 +8,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const I = require('../js/i18n.js');
+const STRINGS = JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'assets', 'strings.json'), 'utf8'));
+const I = { STRINGS, LOCALES: Object.keys(STRINGS) };
 const C = require('../js/content.js');
 const R = require('../js/rules.js');
 
@@ -16,7 +17,7 @@ const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA',
 const dir = path.join(__dirname, '..', 'native');
 const code = fs.readdirSync(dir).filter((f) => f.endsWith('.ts')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
 const used = new Set();
-for (const m of code.matchAll(/\btx?\("([A-Za-z0-9.\-]+)"(?!\s*\+)/g)) used.add(m[1]);
+for (const m of code.matchAll(/\btx?\("([A-Za-z0-9.\-]+)"(?!\s*\+)/g)) if (!m[1].startsWith('starhermit.')) used.add(m[1]);
 // keys built from data
 // (the two shape refusals never reach a player's UI action; they show as inv.default)
 for (const r of Object.values(R.INVALID)) if (!/^(unknown|malformed)-command$/.test(r)) used.add('inv.' + r);
@@ -59,12 +60,4 @@ test('the non-English locales are translated', () => {
     const same = [...used].filter((k) => I.STRINGS[loc][k] === I.STRINGS['en-US'][k] && !/^(lvl|ch|theme|key)\./.test(k));
     assert.ok(same.length < 30, `${loc}: ${same.join(', ')}`);
   }
-});
-test('setLocale switches and falls back to US English', () => {
-  I.setLocale('de-DE');
-  assert.equal(I.lang, 'de-DE');
-  assert.equal(I.t('acct.signIn'), 'Mit StarHermit anmelden');
-  I.setLocale('xx-YY');
-  assert.equal(I.lang, 'en-US');
-  assert.equal(I.t('moves.limit', { n: 3, max: 20 }), 'Moves 3/20');
 });

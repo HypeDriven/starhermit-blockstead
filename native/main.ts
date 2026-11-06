@@ -21,11 +21,11 @@ import { bindingLabel, onAction, onPointerButton, onPointerMove, onTouch, onWhee
 import * as ui from "starhermit:ui";
 import { onPlayerChange, onSessionEnded } from "starhermit:platform";
 import {
-  Content, I18n, RNG, Rules, Session, Store, type Achievement, type Block, type BoardEntry, type Cfg, type Command,
+  Content, RNG, Rules, Session, Store, type Achievement, type Block, type BoardEntry, type Cfg, type Command,
   type Goal, type Lesson, type RulesEvent, type Session as RoundSession, type State,
 } from "./classic.ts";
 import * as audio from "./audio.ts";
-import { onLocaleChange, t } from "./i18n.ts";
+import { I18n, onLocaleChange, t } from "./i18n.ts";
 import * as platform from "./platform.ts";
 import { lookFor } from "./quality.ts";
 import * as render from "./render.ts";
@@ -869,7 +869,7 @@ onLocaleChange(() => {
 });
 platform.onSettingsChange(() => applyPrefs());
 platform.onProgressMerged(() => { if (app.results) app.results = resultsView(); });
-onSessionEnded(() => { app.signedOut = true; toast(t("acct.signedOut")); });
+onSessionEnded(() => { app.signedOut = true; toast(t("starhermit.signedOut")); });
 onPlayerChange((p) => { if (p) app.signedOut = false; });
 onSuspend(() => {
   // Backgrounding pauses the round; nothing is lost.

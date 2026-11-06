@@ -1,33 +1,21 @@
 // The browser build's pure game scripts, unchanged and shared with the Node
 // tests and the authoritative server (server.js): rng, rules, content,
 // session (command ids, undo, replay envelope), store (the save document and
-// its cross-device merge) and the string tables (js/*.js, UMD), plus
+// its cross-device merge) (js/*.js, UMD), plus
 // js/migrate.js (the engine save document and what the browser build left in
 // the account), evaluated as classic scripts so their globals (BSRNG,
-// BSRules, BSContent, BSSession, BSStore, BLI18n, BSMigrate) are this
+// BSRules, BSContent, BSSession, BSStore, BSMigrate) are this
 // module's exports.
 //
-// js/store.js keeps the device's local leaderboard, and js/main.js kept the
-// round in progress, in `localStorage`: here that is a small shim over the
-// device's starhermit:storage, installed before the scripts run. Progress is
-// the game's save (platform.ts).
-import { storage } from "starhermit:storage";
+// js/store.js keeps the device's local leaderboard in `localStorage`: the
+// engine's, over the device's starhermit:storage, installed before the scripts
+// run (its setItem throws past the limits; store.js catches). Progress is the
+// game's save (platform.ts).
+import { installLocalStorage } from "starhermit:storage";
 import { loadClassic } from "starhermit:script";
 
-const shim = {
-  getItem(key: string): string | null {
-    try { return storage.getText(key); } catch { return null; }
-  },
-  setItem(key: string, value: string): void {
-    try { storage.set(key, String(value)); } catch (e) { console.warn(`storage ${key}: ${String(e)}`); }
-  },
-  removeItem(key: string): void {
-    try { storage.remove(key); } catch { /* gone */ }
-  },
-};
-(globalThis as unknown as { localStorage: typeof shim }).localStorage = shim;
-
-for (const f of ["js/rng.js", "js/rules.js", "js/content.js", "js/session.js", "js/store.js", "js/i18n.js", "js/migrate.js"]) loadClassic(f);
+installLocalStorage();
+for (const f of ["js/rng.js", "js/rules.js", "js/content.js", "js/session.js", "js/store.js", "js/migrate.js"]) loadClassic(f);
 
 // -- The shapes this client reads -------------------------------------------------
 export type Block = "wood" | "stone" | "glass" | "plant" | "lamp" | "rock";
@@ -113,18 +101,6 @@ interface StoreApi {
   sortEntries(e: BoardEntry[]): BoardEntry[];
 }
 interface RngApi { derive(seed: number, stream: number): RngStream; hashString(s: string): number; STREAM_AV: number }
-interface I18nApi {
-  t(key: string, vars?: Record<string, string | number> | null, fallback?: string): string;
-  setLocale(tag: string): void;
-  LOCALES: string[];
-  blockLabel(id: string): string;
-  cfgName(cfg: Cfg | null | undefined): string;
-  cfgIntro(cfg: Cfg | null | undefined): string;
-  lessonView(l: Lesson): { id: string; title: string; text: string; goal: Lesson["goal"] };
-  achievementView(a: Achievement): { key: string; name: string; desc: string };
-  themeName(th: Theme): string;
-  readonly lang: string;
-}
 interface MigrateApi {
   GAME_SETTING_KEYS: string[];
   BROWSER_SETTING_KEYS: string[];
@@ -136,12 +112,11 @@ interface MigrateApi {
 }
 
 const g = globalThis as unknown as {
-  BSRules: RulesApi; BSSession: SessionApi; BSContent: ContentApi; BSStore: StoreApi; BSRNG: RngApi; BLI18n: I18nApi; BSMigrate: MigrateApi;
+  BSRules: RulesApi; BSSession: SessionApi; BSContent: ContentApi; BSStore: StoreApi; BSRNG: RngApi; BSMigrate: MigrateApi;
 };
 export const Rules = g.BSRules;
 export const Session = g.BSSession;
 export const Content = g.BSContent;
 export const Store = g.BSStore;
 export const RNG = g.BSRNG;
-export const I18n = g.BLI18n;
 export const Migrate = g.BSMigrate;

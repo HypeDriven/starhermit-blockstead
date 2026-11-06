@@ -25,10 +25,10 @@ Present-tense description of the shipped game. Every statement below is true of 
 | `native/quality.ts` | The browser build's four presets and budgets keyed by the runtime's quality tier and level |
 | `native/audio.ts` | Clips on the runtime's mixer, rendered wind / birds / pad, captions |
 | `native/platform.ts` | Engine save (progress) with cross-device merge and the browser build's cloud save migrated, the game's settings, player names, invite link, high-score posting through `score-script.js` |
-| `native/classic.ts` | Loads the shared `js/*.js` as classic scripts (localStorage shim over device storage) and types them |
+| `native/classic.ts` | Loads the shared `js/*.js` as classic scripts (the engine's `localStorage` over device storage) and types them |
 | `native/i18n.ts`, `native/style.ts` | Locale from the interface language; the converted style sheet and palette tokens |
 | `js/rng.js`, `js/rules.js`, `js/content.js`, `js/session.js`, `js/store.js` | The pure game (unchanged from the browser build, shared with the Node tests and `server.js`) |
-| `js/i18n.js` | String tables in nine locales (`BLI18n`), account strings included |
+| `assets/strings.json` | String tables in nine locales on the engine's `strings` (account lines its `starhermit.*` where it has them) |
 | `js/migrate.js` | Engine save document, the browser build's cloud save and settings as the engine client takes them over |
 | `assets/ui-style.json` | `tools/ui-style.css` converted by `starhermit css` (`npm run css`) |
 | `assets/*.webp`, `sfx/` | Key art and results illustrations; 24 Opus clips and their manifests |
@@ -273,7 +273,7 @@ All clips: MOSS-SoundEffect v2.0, 48 kHz mono Opus 96 kbps, loudness-normalised 
 
 ## 10. Localization
 
-Nine locales: en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT (`js/i18n.js`). The locale follows the runtime's interface language (Options › Language, else the account's preferred language, else the device's), matched by `native/i18n.ts` (en-GB, es-ES, fr-CA by region); every screen re-reads its strings each frame, so a change applies at once. Content keeps English names as data and is named at display time (`cfgName`, `cfgIntro`, `lessonView`, `achievementView`, `themeName`). `tests/i18n.test.js` checks that every key the client uses exists in every locale with the same placeholders.
+Nine locales: en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT (`assets/strings.json`). The locale follows the runtime's interface language (Options › Language, else the account's preferred language, else the device's), matched by `native/i18n.ts` (en-GB, es-ES, fr-CA by region); every screen re-reads its strings each frame, so a change applies at once. Content keeps English names as data and is named at display time (`cfgName`, `cfgIntro`, `lessonView`, `achievementView`, `themeName`). `tests/i18n.test.js` checks that every key the client uses exists in every locale with the same placeholders.
 
 ## 11. Accessibility
 
@@ -290,7 +290,7 @@ Nine locales: en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT (`j
 - The browser build's cloud save (slot `game:blockstead`, the SDK's checksummed `{ sum, payload }`) shows as foreign: its progress is merged in, its game settings kept where the account has none, and it is replaced once (`saves.foreign()` + `replaceForeign`).
 - `starhermit:storage` `settings`: the game's own options (`captions`, `theme`, `colorPalette`, `leftHanded`, `haptics`, `boardMirror`, `confirmMoves`); the browser build's per-player keys are imported where still meaningful and removed (volumes, graphics, reduced motion, contrast, large text and language are the runtime's now).
 - Device storage: the local score boards (`blockstead.leaderboards.v1`) and the round in progress (`blockstead.round.v1`, resumed from the title's Play).
-- `starhermit:platform`: player and display name, profile names for board rows, sign-in request, invite link (copied with the clipboard capability), session-ended notice, and the high-score post: a practice session whose socket sends `{ type: 'result', scores: { 'high-score': total } }` to `score-script.js`, then the player's rank from the board.
+- `starhermit:platform`: player and display name, profile names for board rows, sign-in request, invite link (copied with the clipboard capability), session-ended notice, and the high-score post to `score-script.js` with the player's rank (`leaderboards.submitScore`).
 
 **Not used**
 - No avatar, presence or friends features; journey and challenge boards are local only.

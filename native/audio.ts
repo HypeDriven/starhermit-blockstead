@@ -11,16 +11,12 @@
 // levels (music 55 %, effects 90 %, ambience 50 %) are folded into each
 // sound's gain.
 //
-// The browser build made the wind, the chirps and the pad with Web Audio
-// nodes; here they are rendered once into clips (createClip) with the same
-// shapes — the wind a looped 4 s of lowpassed brown noise, one take for
-// fair weather (300 Hz) and one for rain (700 Hz) crossfaded on a weather
-// change — and the synthesized stand-ins it played while a sample loaded are
-// not ported: the engine's browser runtime drops clip loads and plays while
-// a synthesis graph changes (the arrow-exodus port's finding). The one-shot
-// clips all load in onStart; the beds start once the mixer runs (in a browser
-// after the first press).
-import { context, createClip, loadClip, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
+// The wind, the chirps and the pad are rendered once into clips by the engine's
+// OfflineAudioContext at start — the wind a looped 4 s of lowpassed brown noise,
+// one take for fair weather (300 Hz) and one for rain (700 Hz) crossfaded on a
+// weather change. The one-shot clips all load in onStart; the beds start once
+// the mixer runs (in a browser after the first press).
+import { OfflineAudioContext, SoundBank, context, createClip, loadClip, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
 import type { RngStream } from "./classic.ts";
 
 const LEVEL = { music: 0.55, effects: 0.9, ambience: 0.5 };
@@ -43,6 +39,13 @@ export function loadSfx(): void {
   for (const name of SAMPLES) {
     loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
   }
+  const failed = (what: string) => (e: unknown): void => console.warn(`${what}: ${String(e)}`);
+  renderWind(300, 0x51ed).then((c) => { calmClip = c; }, failed("wind"));
+  renderWind(700, 0x2a7b).then((c) => { stormClip = c; }, failed("wind"));
+  Promise.all(CHORDS.map(renderChord)).then((c) => { chords = c; }, failed("pad"));
+  Promise.all([0, 1, 2].map((i) => renderChirp(1800 + i * 500, 2 + i))).then((clips) => {
+    chirps = new SoundBank({ clips, bus: "effects", gain: LEVEL.ambience, pitch: 1.2, pitchJitter: 0.25 });
+  }, failed("chirps"));
 }
 export function setOnCaption(cb: (event: string) => void): void { onCaption = cb; }
 export function setAvRng(rng: RngStream): void { avRng = rng; }
@@ -60,56 +63,31 @@ export function play(name: string): void {
 
 // -- rendered beds ------------------------------------------------------------------------
 const RATE = 11025;
-/** RBJ biquad lowpass over `x` in place (Web Audio's BiquadFilterNode, Q ≈ 0.707). */
-function lowpass(x: Float32Array, freq: number, rate = RATE, q = Math.SQRT1_2): void {
-  const w = (2 * Math.PI * freq) / rate, alpha = Math.sin(w) / (2 * q), c = Math.cos(w);
-  const a0 = 1 + alpha;
-  const b0 = (1 - c) / 2 / a0, b1 = (1 - c) / a0, b2 = b0, a1 = (-2 * c) / a0, a2 = (1 - alpha) / a0;
-  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-  for (let i = 0; i < x.length; i++) {
-    const x0 = x[i]!;
-    const y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
-    x2 = x1; x1 = x0; y2 = y1; y1 = y0;
-    x[i] = y0;
-  }
-}
-/** The valley wind: brown noise (the browser build's 0.02-leak walk, ×3.5)
- * lowpassed at `cutoff`, 4 s with the ends crossfaded so the loop is seamless. */
-function windClip(cutoff: number, seed: number): AudioClip {
-  const n = 4 * RATE, fadeN = Math.round(0.25 * RATE);
-  const raw = new Float32Array(n + fadeN);
-  let last = 0, s = seed >>> 0;
-  for (let i = 0; i < raw.length; i++) {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    const w = (s / 4294967296) * 2 - 1;
-    last = (last + 0.02 * w) / 1.02;
-    raw[i] = last * 3.5;
-  }
-  lowpass(raw, cutoff);
-  const out = raw.slice(0, n);
-  for (let i = 0; i < fadeN; i++) {
-    const k = i / fadeN;
-    out[i] = raw[n + i]! * (1 - k) + raw[i]! * k;
-  }
-  return createClip([out], RATE);
+/** The valley wind: brown noise lowpassed at `cutoff`, a seamless 4 s loop (the
+ * noise repeats every 4 s, so once the filter settled so does its output). */
+async function renderWind(cutoff: number, seed: number): Promise<AudioClip> {
+  const n = 4 * RATE, settle = Math.round(0.25 * RATE);
+  const off = new OfflineAudioContext(1, settle + n, RATE);
+  const noise = off.createNoise({ color: "brown", seed, seconds: 4 });
+  const lp = off.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = cutoff;
+  noise.connect(lp).connect(off.destination); noise.start();
+  const r = await off.startRendering();
+  return createClip([r.getChannelData(0).slice(settle)], RATE);
 }
 /** A bird phrase: `notes` sine chirps 90 ms long, 120 ms apart, each sweeping
  * up by 30 % (the browser build's blip with an exponential sweep). */
-function chirpClip(base: number, notes: number): AudioClip {
-  const rate = RATE * 4, len = Math.round((0.12 * (notes - 1) + 0.15) * rate);
-  const out = new Float32Array(len);
+async function renderChirp(base: number, notes: number): Promise<AudioClip> {
+  const rate = RATE * 4;
+  const off = new OfflineAudioContext(1, Math.round((0.12 * (notes - 1) + 0.15) * rate), rate);
   for (let k = 0; k < notes; k++) {
-    const f0 = base * (0.9 + ((k * 37) % 20) / 100), f1 = f0 * 1.3, t0 = k * 0.12, dur = 0.09;
-    let ph = 0;
-    for (let i = Math.round(t0 * rate); i < Math.min(len, Math.round((t0 + dur + 0.05) * rate)); i++) {
-      const t = i / rate - t0;
-      const f = f0 * Math.pow(f1 / f0, Math.min(1, t / dur));
-      ph += f / rate;
-      const env = t < 0.008 ? 0.045 * (t / 0.008) : 0.045 * Math.pow(0.0001 / 0.045, Math.min(1, (t - 0.008) / (dur - 0.008)));
-      out[i]! += Math.sin(2 * Math.PI * ph) * env;
-    }
+    const f0 = base * (0.9 + ((k * 37) % 20) / 100), t0 = k * 0.12, dur = 0.09;
+    const osc = off.createOscillator();
+    osc.frequency.setValueAtTime(f0, t0); osc.frequency.exponentialRampToValueAtTime(f0 * 1.3, t0 + dur);
+    const g = off.createGain();
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.045, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(off.destination); osc.start(t0); osc.stop(t0 + dur + 0.05);
   }
-  return createClip([out], rate);
+  return createClip(await off.startRendering());
 }
 const CHORDS = [
   [261.63, 329.63, 392.0], // C E G
@@ -119,24 +97,17 @@ const CHORDS = [
 ];
 /** One pad chord: a triangle root and two sines an octave down, lowpassed at
  * 650 Hz, rising to 0.045 over 2 s and falling to silence by 6.8 s. */
-function chordClip(chord: number[]): AudioClip {
-  const n = Math.round(7 * RATE);
-  const out = new Float32Array(n);
+async function renderChord(chord: number[]): Promise<AudioClip> {
+  const off = new OfflineAudioContext(1, Math.round(7 * RATE), RATE);
+  const lp = off.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 650;
+  const g = off.createGain();
+  g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.045, 2); g.gain.linearRampToValueAtTime(0.0001, 6.8); g.gain.setValueAtTime(0, 6.8);
+  lp.connect(g).connect(off.destination);
   chord.forEach((freq, v) => {
-    const f = freq * 0.5;
-    const voice = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const ph = (f * i / RATE) % 1;
-      voice[i] = v === 0 ? 1 - 4 * Math.abs(ph - 0.5) : Math.sin(2 * Math.PI * ph);
-    }
-    lowpass(voice, 650);
-    for (let i = 0; i < n; i++) {
-      const t = i / RATE;
-      const env = t < 2 ? 0.045 * (t / 2) : t < 6.8 ? 0.045 + (0.0001 - 0.045) * ((t - 2) / 4.8) : 0;
-      out[i]! += voice[i]! * env;
-    }
+    const osc = off.createOscillator(); osc.type = v === 0 ? "triangle" : "sine"; osc.frequency.value = freq * 0.5;
+    osc.connect(lp); osc.start();
   });
-  return createClip([out], RATE);
+  return createClip(await off.startRendering());
 }
 
 type Weather = "sun" | "cloud" | "rain";
@@ -146,8 +117,8 @@ let paused = false;
 let weather: Weather = "sun";
 let calm: Sound | null = null, storm: Sound | null = null;
 let calmClip: AudioClip | null = null, stormClip: AudioClip | null = null;
-const chords: AudioClip[] = [];
-const chirps: AudioClip[] = [];
+let chords: AudioClip[] = [];
+let chirps: SoundBank | null = null;
 let chordIdx = 0;
 let nextChord = 0;
 let nextBird = 0;
@@ -176,16 +147,13 @@ export function setWeather(w: Weather): void {
   fadeWind(1.2);
 }
 
-/** Each frame once the mixer runs: one rendered clip a frame, then
- * the pad's next chord every 5.6 s and a bird phrase every 3–10 s of mixer
+/** Each frame once the mixer runs and the clips are rendered: the
+ * pad's next chord every 5.6 s and a bird phrase every 3–10 s of mixer
  * time in fair weather. */
 export function update(): void {
   if (context.state !== "running" || !started) return; // starting the beds still waits for the mixer
+  if (!calmClip || !stormClip || !chords.length || !chirps) return;
   try {
-    if (!calmClip) { calmClip = windClip(300, 0x51ed); return; }
-    if (!stormClip) { stormClip = windClip(700, 0x2a7b); return; }
-    if (chords.length < CHORDS.length) { chords.push(chordClip(CHORDS[chords.length]!)); return; }
-    if (chirps.length < 3) { chirps.push(chirpClip(1800 + chirps.length * 500, 2 + chirps.length)); return; }
     // one new loop a frame (two plays in one frame were occasionally rejected by headless Chrome's mixer)
     if (!calm) { calm = playClip(calmClip, { bus: "effects", gain: windGains()[0], loop: true }); return; }
     if (!storm) { storm = playClip(stormClip, { bus: "effects", gain: windGains()[1], loop: true }); return; }
@@ -200,7 +168,7 @@ export function update(): void {
     const first = nextBird === 0;
     nextBird = now + 3 + Math.random() * 7;
     if (!first && weather !== "rain") {
-      try { playClip(chirps[Math.floor(Math.random() * chirps.length)]!, { bus: "effects", gain: LEVEL.ambience, pitch: 0.9 + Math.random() * 0.6 }); } catch { /* full */ }
+      try { chirps.play(); } catch { /* full */ }
     }
   }
 }
