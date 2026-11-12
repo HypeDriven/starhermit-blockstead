@@ -335,3 +335,11 @@ The package is a script game: `native/main.ts` runs on the engine (natively and 
 - Friends-filtered leaderboards and a shareable seed link for dailies and challenges.
 - Journey and challenge board tabs on the Scores screen.
 - Keyboard camera orbit (e.g. `Q`/`E`, `+`/`−`).
+
+<!-- regional-localization:start -->
+
+### Regional interface languages
+
+The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `ja-JP`, `nl-BE`, `zh-SG`, `ms-SG`, `ta-SG`, `zh-HK`, `yue-HK`, `nl-NL`, `fi-FI`, `sv-FI`, `et-EE`, `id-ID`, `vi-VN`, `ru-FI`, `ru-EE`, `da-DE`, `lb-BE`, `co-FR`, `eu-FR`, `ca-FR`, `oc-FR`, `sl-IT`, `fur-IT`, `ca-IT`, `oc-IT`, `ca-ES`, `eu-ES`, `gl-ES`, `su-ID`, `bew-ID`, `km-VN`.
+
+<!-- regional-localization:end -->
