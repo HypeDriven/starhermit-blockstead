@@ -108,7 +108,7 @@ export function keyName(action: string): string {
   return named[first] ?? first;
 }
 export function announce(msg: string): void { if (msg) ui.announce(msg); }
-export function toast(text: string): void { app.toast = { text, until: now() + 2.4 }; announce(text); }
+export function toast(text: string): void { ui.toast!(text, { duration: 2.4, position: "top", offset: 8, style: "toast" }); announce(text); }
 /** The HUD guidance line (sticky until the next one, else 2.6 s). */
 export function message(text: string, sticky = false): void {
   app.message = text ? { text, until: sticky ? null : now() + 2.6 } : null;

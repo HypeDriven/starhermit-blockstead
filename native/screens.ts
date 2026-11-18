@@ -1,3 +1,4 @@
+import { bindings } from "starhermit:input";
 import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
 // localization-runtime:attached
 import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
@@ -162,7 +163,7 @@ function firstLabel(name: ScreenName): string | null {
   }
 }
 
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   const top = currentScreen();
   if (app.focusNext && top && frame().frame - app.openedFrame >= 2) {
@@ -187,19 +188,6 @@ export function drawScreens(): void {
       case "profile": profileScreen(L); break;
       case "leaderboard": leaderboardScreen(L); break;
     }
-  }
-  if (app.toast) {
-    // Over a screen the toast docks at the top; in play it floats above the trays.
-    const over = !!top || !s;
-    const w = Math.min(L.lw * 0.92, 560);
-    const y = over ? 8 : Math.max(0, bottomH - toastH - 12);
-    ui.place("toast", { anchor: "top-start", x: (L.lw - w) / 2, y }, () => {
-      const r = ui.column("toast-box", () => {
-        if (textWidth(app.toast!.text, "toast") <= w) ui.style(__l10nStyle("toast")).label(app.toast!.text);
-        else ui.style(__l10nStyle("toast")).paragraph(app.toast!.text, w - 32);
-      }, { align: "center" });
-      toastH = r.height / L.sc;
-    }, { width: w, align: "center" });
   }
 }
 let toastH = 40;
@@ -510,7 +498,7 @@ function titleScreen(L: Layout): void {
     para(accountLine(), w, "mini", "account-line", true);
   }, { width: 640, card: "title-card", spacing: short ? 8 : 12, align: "center" });
 }
-function toast2(text: string): void { app.toast = { text, until: frame().time + 2.4 }; ui.announce(text); }
+function toast2(text: string): void { ui.toast!(text, { duration: 2.4, position: "top", offset: 8, style: "toast" }); ui.announce(text); }
 
 /** A card button: a title, a description and an optional meta line. */
 function card(id: string, title: string, desc: string, meta: string, w: number, act: () => void): void {
@@ -775,4 +763,11 @@ function leaderboardScreen(L: Layout): void {
     }
     button(backBtn("btn-lb-back"));
   }, { width: 900 });
+}
+
+export function drawScreens(): void {
+  if (!(currentScreen() === "help")) { drawScreensImmediate(); return; }
+  const actions = ["pause","back","prev","next","place","gather","remove","undo","hint","camera","topdown","skip","block1","block2","block3","block4","block5","prev_block","next_block"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
 }

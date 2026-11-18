@@ -11,9 +11,9 @@ Present-tense description of the shipped game. Every statement below is true of 
 | Genre | Solo construction puzzle / relaxed builder with ranked seeds |
 | Players | 1; scores compared on device-local boards and, when signed in, the StarHermit `high-score` board |
 | Session | 2–4 min per journey stage, 5–10 min for a daily or challenge, open-ended in score chase |
-| Platforms | The StarHermit engine 1.39.0: natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime; keyboard, mouse, touch, gamepad |
+| Platforms | The StarHermit engine 1.44.1: natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime; keyboard, mouse, touch, gamepad |
 | Rendering | `starhermit:scene` (three.js-like) with the runtime's ambient occlusion, bloom, grade and antialiasing per graphics level; the HUD and screens in `starhermit:ui` |
-| Hosting | A StarHermit script game package (`starhermit.txt`: `engine.entry=native/main.ts`, `engine.version=1.39.0`, `engine.minor=39`, capabilities `platform,storage,clipboard`) plus the platform script `score-script.js` (`server=`); `index.html` is the engine's web loader written by `npm run package`; `server.js` is the local dev server |
+| Hosting | A StarHermit script game package (`starhermit.txt`: `engine.entry=native/main.ts`, `engine.version=1.44.1`, `engine.minor=44`, capabilities `platform,storage,clipboard`) plus the platform script `score-script.js` (`server=`); `index.html` is the engine's web loader written by `npm run package`; `server.js` is the local dev server |
 
 ### File map
 
@@ -204,7 +204,7 @@ Actions are declared in `starhermit.txt` (`control.*`, `engine.gamepad.*`); play
 | Page background / text | `#0b1420` / `#eef2f6`; high contrast `#000` / `#fff` |
 | Panels, HUD | `#101c2ae8`, HUD `rgba(10,18,28,.78)`; on High/Ultra `rgba(10,18,28,.62)` with 6 px backdrop blur |
 | Primary button | `#3b82f6`; danger `#b91c1c`; focus ring and stars `#ffd27a` |
-| Blocks (standard) | timber `#b07a45`, stone `#8d9299`, glass `#9fd8e8` @ 72 % opacity, plant `#6fbf5a` + leaf, lamp `#ffd27a` emissive 0.85, rock `#6b6560` |
+| Blocks (standard) | timber `#b07a45`, stone `#8d9299`, glass `#9fd8e8` @ 72 % opacity with native physical transmission (0.45), thickness 0.35 and IOR 1.45, plant `#6fbf5a` + leaf, lamp `#ffd27a` emissive 0.85, rock `#6b6560` |
 | Blocks (high visibility) | timber `#b7791f`, stone `#9aa0a8`, glass `#4cc9f0`, plant `#2f9e44`, lamp `#ffd60a` |
 | Targets | legal disc `#7cfc9a`; hover ring `#fff2a8`; illegal ring `#ff6a5e`; ghost `#9fff9f` / `#ff8a7a` |
 | Theme: Sunlit Meadow | sky `#87bfe8`, horizon `#d8ecdc`, ground `#77a95c`, soil `#8a6a48`, sun `#fff2cc` ×1.25, fog `#bcd8e8`, water `#5f9fc8`, leaf `#4f8f3f` |
@@ -343,3 +343,11 @@ The package is a script game: `native/main.ts` runs on the engine (natively and 
 The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `ja-JP`, `nl-BE`, `zh-SG`, `ms-SG`, `ta-SG`, `zh-HK`, `yue-HK`, `nl-NL`, `fi-FI`, `sv-FI`, `et-EE`, `id-ID`, `vi-VN`, `ru-FI`, `ru-EE`, `da-DE`, `lb-BE`, `co-FR`, `eu-FR`, `ca-FR`, `oc-FR`, `sl-IT`, `fur-IT`, `ca-IT`, `oc-IT`, `ca-ES`, `eu-ES`, `gl-ES`, `su-ID`, `bew-ID`, `km-VN`.
 
 <!-- regional-localization:end -->
+
+## Engine 1.44.1
+
+Browser play uses the WebGPU-only StarHermit 1.44.1 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+
+The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
+
+Toasts use native engine stacking, styling, accessibility and lifetime management.

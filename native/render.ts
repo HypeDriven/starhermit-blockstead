@@ -133,7 +133,7 @@ function texture(kind: TexKind | "ground"): Texture {
 const mats = {
   wood: new MeshStandardMaterial({ roughness: 0.78 }),
   stone: new MeshStandardMaterial({ roughness: 0.88 }),
-  glass: new MeshPhysicalMaterial({ roughness: 0.12, metalness: 0, transparent: true, opacity: 0.7, clearcoat: 0.8, clearcoatRoughness: 0.1 }),
+  glass: new MeshPhysicalMaterial({ roughness: 0.12, metalness: 0, transparent: true, opacity: 0.7, clearcoat: 0.8, clearcoatRoughness: 0.1, transmission: 0.45, thickness: 0.35, ior: 1.45, attenuationColor: 0x9fd8e8, attenuationDistance: 2 }),
   plant: new MeshStandardMaterial({ roughness: 0.8 }),
   plantTop: new MeshStandardMaterial({ roughness: 0.75 }),
   lamp: new MeshPhysicalMaterial({ roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
