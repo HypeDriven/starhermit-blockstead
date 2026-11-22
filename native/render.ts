@@ -748,6 +748,7 @@ export function applyLook(next: Look): void {
   renderer.bloom = next.bloom !== null ? { model: "r160", strength: 0.4, radius: 0.35, threshold: 0.95, resolution: next.bloom } : null;
   renderer.grade = gradeSettings();
   renderer.antialias = next.antialias;
+  renderer.motionBlur = next.bloom !== null ? { intensity: 0.25, samples: 8, maxPixels: 16, targetFps: 60, camera: false } : null;
   updateMats();
   const rebuild = !prev || prev.detailed !== next.detailed || (prev.shadows > 0) !== shadows ||
     prev.budget.bevel !== next.budget.bevel || prev.budget.texture !== next.budget.texture || prev.budget.clouds !== next.budget.clouds;
