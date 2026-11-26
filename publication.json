@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T07:00:58.538095+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-26T15:57:59.693151+00:00",
+    "coverArtUpdatedAt": "2026-11-26T19:54:48.018849+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-26T15:57:59.682+00:00",
+      "deployedAt": "2026-11-26T19:54:48.006426+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.50.0",
+      "engineVersion": "1.51.0",
       "deployWarning": null
     },
     "description": "Gather timber and stone, build a voxel settlement, and complete construction goals before your moves run out.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-26T15:57:58.801Z",
-  "sourceCommit": "d13d5863e8746f8107210e3e0193da6135085ce1",
-  "bytesReceived": 3140961,
-  "archiveSha256": "3c75d1ffa2720672e84c3ed93cbef31317f7924167031ebfaa57a8de289d8d0d",
+  "publishedAt": "2026-11-26T19:54:48.206Z",
+  "sourceCommit": "19f670785e8076d02fc1ae41faad2f1db1bec166",
+  "bytesReceived": 3140912,
+  "archiveSha256": "ebce1fe7cac2ff721db0e6e2c1651b2a7f0f1b3ce4143f66a29566e7f58dd24d",
   "indexSha256": "42cece16d0365869dfa1785efc1caf0ff03868dc2e0b8903ad472cc0cd838725",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 3140961,
+    "bytesReceived": 3140912,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.50.0",
+    "engineVersion": "1.51.0",
     "deployWarning": null
   },
   "liveVerification": {
